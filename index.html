@@ -822,10 +822,16 @@
     .chart-drawer-label { font-size: 9px; }
     .map-legend.chart-open { bottom: 10px; }    /* legend ไม่เลื่อนบน mobile */
 
-    /* Legend & controls เล็กลง */
-    .map-legend { bottom: 8px; padding: 6px 8px; font-size: 9px; }
-    .map-legend-title { font-size: 8px; }
-    .legend-row { margin-bottom: 2px; gap: 4px; }
+    /* Legend — compact collapsible บน mobile */
+    .map-legend {
+      bottom: 8px; padding: 5px 8px;
+      font-size: 8px; max-width: 130px;
+    }
+    .map-legend-title { font-size: 8px; margin-bottom: 3px; }
+    .legend-row { margin-bottom: 1px; gap: 4px; }
+    /* ลด dot size บน mobile */
+    .legend-dot { width: 7px !important; height: 7px !important; }
+    .legend-line { width: 14px !important; }
     .map-controls-overlay { top: 6px; right: 44px; gap: 4px; }
     .map-overlay-btn { font-size: 9px; padding: 4px 8px; }
 
@@ -963,15 +969,20 @@
 
     <!-- Map Legend -->
     <div class="map-legend" id="mapLegend">
-      <div class="map-legend-title">Magnitude</div>
-      <div class="legend-row"><div class="legend-dot" style="background:#22c55e;width:7px;height:7px"></div><span style="color:#94a3b8">&lt; 4.0 Minor</span></div>
-      <div class="legend-row"><div class="legend-dot" style="background:#eab308;width:10px;height:10px"></div><span style="color:#94a3b8">4.0–4.9 Light</span></div>
-      <div class="legend-row"><div class="legend-dot" style="background:#f97316;width:13px;height:13px"></div><span style="color:#94a3b8">5.0–5.9 Moderate</span></div>
-      <div class="legend-row"><div class="legend-dot" style="background:#ef4444;width:16px;height:16px"></div><span style="color:#94a3b8">6.0–6.9 Strong</span></div>
-      <div class="legend-row"><div class="legend-dot" style="background:#fca5a5;width:20px;height:20px"></div><span style="color:#94a3b8">7.0+ Major</span></div>
-      <div style="margin-top:7px; padding-top:6px; border-top:1px solid #1e2d45;">
-        <div class="legend-row"><div class="legend-line" style="background:linear-gradient(90deg,#ff4400,#ff8800);height:2px;border-radius:1px"></div><span style="color:#ff8855">Ring of Fire</span></div>
-        <div class="legend-row"><div class="legend-line" style="background:#00d4ff;height:1px;border-radius:1px;opacity:0.6"></div><span style="color:#64748b">Tectonic Plates</span></div>
+      <div class="map-legend-title" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleLegend()">
+        <span>Magnitude</span>
+        <span id="legendToggleIcon" style="font-size:8px;margin-left:6px;color:var(--text-muted)">▲</span>
+      </div>
+      <div id="legendBody">
+        <div class="legend-row"><div class="legend-dot" style="background:#22c55e;width:7px;height:7px"></div><span style="color:#94a3b8">&lt; 4.0 Minor</span></div>
+        <div class="legend-row"><div class="legend-dot" style="background:#eab308;width:10px;height:10px"></div><span style="color:#94a3b8">4.0–4.9 Light</span></div>
+        <div class="legend-row"><div class="legend-dot" style="background:#f97316;width:13px;height:13px"></div><span style="color:#94a3b8">5.0–5.9 Moderate</span></div>
+        <div class="legend-row"><div class="legend-dot" style="background:#ef4444;width:16px;height:16px"></div><span style="color:#94a3b8">6.0–6.9 Strong</span></div>
+        <div class="legend-row"><div class="legend-dot" style="background:#fca5a5;width:20px;height:20px"></div><span style="color:#94a3b8">7.0+ Major</span></div>
+        <div style="margin-top:7px; padding-top:6px; border-top:1px solid #1e2d45;">
+          <div class="legend-row"><div class="legend-line" style="background:linear-gradient(90deg,#ff4400,#ff8800);height:2px;border-radius:1px"></div><span style="color:#ff8855">Ring of Fire</span></div>
+          <div class="legend-row"><div class="legend-line" style="background:#00d4ff;height:1px;border-radius:1px;opacity:0.6"></div><span style="color:#64748b">Tectonic Plates</span></div>
+        </div>
       </div>
     </div>
 
@@ -2114,6 +2125,30 @@ function showNewBanner(msg) {
 }
 
 // ══════════════════════════════════════════
+// LEGEND TOGGLE — ย่อ/ขยาย บน mobile
+// ══════════════════════════════════════════
+let legendOpen = true;
+
+function toggleLegend() {
+  legendOpen = !legendOpen;
+  const body = document.getElementById('legendBody');
+  const icon = document.getElementById('legendToggleIcon');
+  body.style.display = legendOpen ? 'block' : 'none';
+  icon.textContent   = legendOpen ? '▲' : '▼';
+}
+
+// Auto-collapse บน mobile เมื่อโหลดหน้า
+function initLegendState() {
+  if (window.innerWidth <= 768) {
+    legendOpen = false;
+    const body = document.getElementById('legendBody');
+    const icon = document.getElementById('legendToggleIcon');
+    if (body) body.style.display = 'none';
+    if (icon) icon.textContent = '▼';
+  }
+}
+
+// ══════════════════════════════════════════
 // CHART DRAWER TOGGLE
 // ══════════════════════════════════════════
 let chartDrawerOpen = false;
@@ -2592,6 +2627,7 @@ function startTsunamiPolling() {
 // INIT
 // ══════════════════════════════════════════
 async function init() {
+  initLegendState();
   initLeafletMap();
   await Promise.all([fetchAll(), fetchTsunami()]);
   connectWS();
