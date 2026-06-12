@@ -1,0 +1,2605 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SeismoWatch — Realtime Global Earthquake & Tsunami Monitor</title>
+
+<!-- ── SEO & Social Share ── -->
+<meta name="description" content="แดชบอร์ดติดตามแผ่นดินไหวและสึนามิแบบเรียลไทม์ทั่วโลก ข้อมูลจาก USGS, EMSC, GEOFON, NOAA/PTWC และ GDACS อัปเดตอัตโนมัติ">
+<meta name="keywords" content="earthquake,tsunami,แผ่นดินไหว,สึนามิ,realtime,USGS,EMSC,GEOFON,NOAA,GDACS,seismic,dashboard">
+<meta name="author" content="Earthquake Monitor">
+<meta name="theme-color" content="#0a0e1a">
+
+<!-- Open Graph (Facebook / Line / Discord preview) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="🌍 SeismoWatch — Realtime Earthquake & Tsunami Monitor">
+<meta property="og:description" content="ติดตามแผ่นดินไหวและสึนามิทั่วโลกแบบเรียลไทม์ ข้อมูลจาก USGS + EMSC + GEOFON + NOAA/PTWC + GDACS พร้อมแผนที่ Ring of Fire">
+<meta property="og:image" content="https://earthquake.usgs.gov/theme/images/usgs-logo.png">
+<meta property="og:url" content="">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="🌍 SeismoWatch — Realtime Earthquake & Tsunami Monitor">
+<meta name="twitter:description" content="ติดตามแผ่นดินไหวทั่วโลกแบบเรียลไทม์ ข้อมูลจาก USGS + EMSC + GEOFON">
+
+<!-- GitHub Pages: ป้องกัน Jekyll processing ไฟล์ HTML -->
+<!-- ไม่ต้องใช้ Jekyll เพราะเป็น static single-file -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Leaflet Map -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #7c3aed;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --orange: #f97316;
+    --red: #ef4444;
+    --red-dark: #b91c1c;
+    --font-mono: 'Courier New', monospace;
+    --font-ui: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: linear-gradient(90deg, #0a0e1a 0%, #0d1b2a 50%, #0a0e1a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(8px);
+  }
+
+  .header-left { display: flex; align-items: center; gap: 14px; }
+
+  .seismo-logo {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .header h1 {
+    font-size: 16px; font-weight: 700; letter-spacing: 0.05em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .header h1 span { color: var(--text-muted); font-weight: 400; font-size: 12px; display: block; letter-spacing: 0.1em; }
+
+  .header-right { display: flex; align-items: center; gap: 16px; }
+
+  .ws-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600;
+    padding: 4px 10px; border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: default;
+  }
+  .ws-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-muted);
+    transition: background 0.3s;
+  }
+  .ws-badge.connected .ws-dot { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse-dot 2s infinite; }
+  .ws-badge.disconnected .ws-dot { background: var(--red); }
+  .ws-badge.connecting .ws-dot { background: var(--yellow); animation: pulse-dot 0.8s infinite; }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .clock {
+    font-family: var(--font-mono);
+    font-size: 13px; color: var(--accent);
+    background: var(--surface);
+    padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .poll-countdown {
+    font-size: 11px; color: var(--text-muted);
+    background: var(--surface);
+    padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .poll-countdown span { color: var(--accent2); font-weight: 700; }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--accent-color, var(--accent));
+  }
+  .stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 800; color: var(--accent-color, var(--accent)); font-family: var(--font-mono); line-height: 1; }
+  .stat-sub { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+
+  /* ── FILTER BAR ── */
+  .filter-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .filter-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
+
+  .filter-btn {
+    padding: 5px 12px; border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+
+  .filter-sep { width: 1px; height: 20px; background: var(--border); }
+
+  select.filter-select {
+    padding: 5px 10px; border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg); color: var(--text);
+    font-size: 12px; cursor: pointer;
+  }
+
+  .refresh-btn {
+    margin-left: auto;
+    padding: 6px 14px; border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: transparent; color: var(--accent);
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .refresh-btn:hover { background: var(--accent); color: #000; }
+  .refresh-btn.loading { opacity: 0.6; pointer-events: none; }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: auto 1fr;
+    gap: 0;
+    height: calc(100vh - 175px);
+  }
+
+  /* ── MAP AREA ── */
+  .map-area {
+    grid-row: 1 / 3;
+    position: relative;
+    background: var(--surface2);
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .map-container {
+    width: 100%; height: 100%;
+    position: relative;
+  }
+
+  #leafletMap {
+    width: 100%;
+    height: 100%;          /* เต็ม map-area เมื่อ chart ปิด */
+    border-bottom: none;
+    background: #0d1520;
+    transition: height 0.3s ease;
+  }
+  #leafletMap.chart-open {
+    height: 62%;           /* ลดลงเมื่อ drawer เปิด */
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Leaflet dark overrides */
+  .leaflet-container { background: #0d1520 !important; font-family: var(--font-ui); }
+  .leaflet-tile-pane { filter: brightness(0.85) saturate(0.7); }
+  .leaflet-control-zoom a {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+  }
+  .leaflet-control-zoom a:hover { background: var(--surface2) !important; color: var(--accent) !important; }
+  .leaflet-control-attribution {
+    background: rgba(10,14,26,0.75) !important;
+    color: var(--text-muted) !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-attribution a { color: var(--accent) !important; }
+  .leaflet-control-layers {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    border-radius: 8px !important;
+  }
+  .leaflet-control-layers-list label { color: var(--text) !important; font-size: 11px; }
+
+  /* Custom EQ popup */
+  .leaflet-popup-content-wrapper {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+    color: var(--text) !important;
+    padding: 0 !important;
+  }
+  .leaflet-popup-tip { background: var(--surface) !important; }
+  .leaflet-popup-content { margin: 0 !important; }
+  .eq-popup { padding: 12px 14px; min-width: 180px; }
+  .eq-popup-mag { font-size: 28px; font-weight: 900; font-family: var(--font-mono); line-height: 1; }
+  .eq-popup-place { font-size: 12px; font-weight: 600; margin: 4px 0 6px; line-height: 1.3; }
+  .eq-popup-meta { font-size: 10px; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; }
+  .eq-popup-src { display: inline-block; margin-top: 6px; font-size: 9px; padding: 2px 6px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); font-weight: 700; }
+
+  /* Map legend — ติดมุมล่างซ้ายของ leafletMap เสมอ */
+  .map-legend {
+    position: absolute; bottom: 10px; left: 10px; z-index: 1000;
+    background: rgba(10,14,26,0.88);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px;
+    font-size: 10px; backdrop-filter: blur(4px);
+    pointer-events: none;
+    /* ไม่ใช้ transition bottom เพื่อหลีกเลี่ยงการชนกับ chart drawer */
+  }
+  /* เมื่อ chart drawer เปิด ให้ legend ยกขึ้นพ้นกราฟ */
+  .map-legend.chart-open { bottom: 212px; }
+  .map-legend-title { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+  .legend-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-line { width: 20px; height: 2px; flex-shrink: 0; }
+
+  /* Ring of Fire toggle button */
+  .map-controls-overlay {
+    position: absolute; top: 8px; right: 50px; z-index: 1000;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .map-overlay-btn {
+    background: rgba(10,14,26,0.88);
+    border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 10px;
+    font-size: 10px; color: var(--text-muted);
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 5px;
+    backdrop-filter: blur(4px); white-space: nowrap;
+  }
+  .map-overlay-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .map-overlay-btn.active { border-color: #ff4400; color: #ff8855; background: rgba(255,68,0,0.12); }
+  .map-overlay-btn.active-blue { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.08); }
+
+  /* ── CHART DRAWER (collapsible) ── */
+  .chart-drawer-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 14px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .chart-drawer-toggle:hover { background: var(--surface2); }
+  .chart-drawer-label {
+    font-size: 10px; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chart-drawer-label span.cd-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); display: inline-block;
+  }
+  .chart-drawer-arrow {
+    font-size: 11px; color: var(--text-muted);
+    transition: transform 0.3s ease;
+  }
+  .chart-drawer-arrow.open { transform: rotate(180deg); }
+
+  .chart-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 0;
+    overflow: hidden;
+    transition: height 0.3s ease;
+    border-top: none;
+    flex-shrink: 0;
+  }
+  .chart-row.open {
+    height: 200px;          /* fixed height เมื่อเปิด — ไม่กินพื้นที่ map */
+    border-top: 1px solid var(--border);
+  }
+
+  .chart-panel {
+    padding: 10px 12px;
+    border-right: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .chart-panel:last-child { border-right: none; }
+  .chart-panel-title {
+    font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 6px; flex-shrink: 0;
+  }
+  /* canvas ต้องไม่มี max-height แบบ % เพราะ parent ยังไม่มีขนาดตอน render */
+  .chart-panel canvas {
+    flex: 1;
+    min-height: 0 !important;
+    max-height: 160px !important;
+    width: 100% !important;
+  }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .table-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface);
+  }
+  .table-header-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+  .event-count { font-size: 11px; color: var(--accent); font-family: var(--font-mono); background: var(--surface2); padding: 2px 8px; border-radius: 10px; }
+
+  .event-list {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .event-item {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s;
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 10px;
+    align-items: center;
+    animation: slide-in 0.3s ease;
+  }
+  .event-item:hover { background: var(--surface2); }
+  .event-item.new-event { animation: flash-in 0.6s ease; }
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes flash-in {
+    0% { background: rgba(0, 212, 255, 0.2); }
+    100% { background: transparent; }
+  }
+
+  .mag-badge {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 900; font-family: var(--font-mono);
+    flex-shrink: 0;
+  }
+
+  .event-info {}
+  .event-place { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 2px; }
+  .event-meta { font-size: 10px; color: var(--text-muted); display: flex; gap: 6px; flex-wrap: wrap; }
+  .event-source { font-size: 9px; padding: 1px 5px; border-radius: 3px; background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); font-weight: 600; text-transform: uppercase; }
+
+  /* ── Magnitude colors ── */
+  .mag-1 { background: #16a34a22; border: 1px solid #16a34a; color: var(--green); }
+  .mag-2 { background: #ca8a0422; border: 1px solid #ca8a04; color: var(--yellow); }
+  .mag-3 { background: #ea580c22; border: 1px solid #ea580c; color: var(--orange); }
+  .mag-4 { background: #dc262622; border: 1px solid #dc2626; color: var(--red); }
+  .mag-5 { background: #7f1d1d44; border: 1px solid #b91c1c; color: #fca5a5; }
+
+  /* ── MAP: TSUNAMI RING (Leaflet pulse) ── */
+  @keyframes ring-expand {
+    0%   { stroke-opacity: 0.8; }
+    100% { stroke-opacity: 0; }
+  }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    padding: 6px 20px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+    font-size: 10px; color: var(--text-muted);
+  }
+  .status-bar .status-item { display: flex; align-items: center; gap: 5px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .log-ticker {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    max-width: 400px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* ── DETAIL MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    position: relative;
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text-muted); border-radius: 6px;
+    width: 28px; height: 28px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; transition: all 0.15s;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .modal-mag { font-size: 56px; font-weight: 900; font-family: var(--font-mono); line-height: 1; margin-bottom: 6px; }
+  .modal-place { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .modal-field { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
+  .modal-field-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
+  .modal-field-value { font-size: 14px; font-weight: 700; font-family: var(--font-mono); }
+
+  /* ── ALERT TOAST ── */
+  .toast-container {
+    position: fixed; top: 70px; right: 20px;
+    z-index: 300;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    max-width: 280px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    animation: toast-in 0.3s ease;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .toast.alert-high { border-left-color: var(--red); }
+  .toast.alert-med { border-left-color: var(--orange); }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .toast-dismiss { margin-left: auto; cursor: pointer; color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
+  .toast strong { display: block; color: var(--text); margin-bottom: 2px; }
+
+  /* ── TSUNAMI ALERT BANNER ── */
+  .tsunami-banner {
+    display: none;
+    background: linear-gradient(90deg, #1a0a00, #2d1000, #1a0a00);
+    border-bottom: 2px solid #ff4400;
+    padding: 0;
+    animation: tsunami-pulse-bg 2s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+    z-index: 90;
+  }
+  .tsunami-banner.active { display: block; }
+  .tsunami-banner::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 20px,
+      rgba(255,68,0,0.04) 20px, rgba(255,68,0,0.04) 40px
+    );
+    animation: scan-line 3s linear infinite;
+  }
+  @keyframes scan-line {
+    from { background-position: 0 0; }
+    to   { background-position: 40px 0; }
+  }
+  @keyframes tsunami-pulse-bg {
+    0%,100% { border-bottom-color: #ff4400; }
+    50%     { border-bottom-color: #ff8800; }
+  }
+
+  .tsunami-banner-inner {
+    display: flex; align-items: stretch;
+    position: relative; z-index: 1;
+  }
+
+  .tsunami-severity-flag {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 8px 16px; min-width: 80px;
+    font-size: 10px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    gap: 3px; flex-shrink: 0;
+  }
+  .tsunami-severity-flag .flag-icon { font-size: 20px; }
+  .sev-warning  { background: #b91c1c; color: #fef2f2; }
+  .sev-watch    { background: #c2410c; color: #fff7ed; }
+  .sev-advisory { background: #92400e; color: #fef3c7; }
+  .sev-info     { background: #1e3a5f; color: #bfdbfe; }
+
+  .tsunami-alerts-scroll {
+    flex: 1; overflow-x: auto; overflow-y: hidden;
+    display: flex; align-items: center; gap: 0;
+    scrollbar-width: none;
+  }
+  .tsunami-alerts-scroll::-webkit-scrollbar { display: none; }
+
+  .tsunami-alert-card {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    border-right: 1px solid rgba(255,68,0,0.2);
+    cursor: pointer;
+    transition: background 0.15s;
+    min-width: 220px; max-width: 280px;
+  }
+  .tsunami-alert-card:hover { background: rgba(255,68,0,0.08); }
+
+  .tac-header {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 3px;
+  }
+  .tac-badge {
+    font-size: 9px; font-weight: 800;
+    padding: 2px 6px; border-radius: 3px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .badge-warning  { background: #b91c1c; color: #fff; }
+  .badge-watch    { background: #c2410c; color: #fff; }
+  .badge-advisory { background: #92400e; color: #fef3c7; }
+  .badge-info     { background: #1e3a5f; color: #93c5fd; }
+  .badge-eq       { background: #4c1d95; color: #ddd6fe; }
+
+  .tac-source {
+    font-size: 9px; color: rgba(255,150,80,0.7);
+    font-weight: 600; text-transform: uppercase;
+  }
+  .tac-title {
+    font-size: 11px; font-weight: 700; color: #fde68a;
+    line-height: 1.4; margin-bottom: 3px;
+    /* 2 บรรทัด แล้ว ellipsis — ไม่ตัดกลางคำ */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .tac-hint {
+    font-size: 9px; color: rgba(255,150,80,0.55);
+    margin-top: 2px; font-style: italic;
+  }
+  .tac-meta {
+    font-size: 10px; color: rgba(255,200,150,0.7);
+    display: flex; gap: 8px;
+  }
+
+  .tsunami-banner-status {
+    padding: 8px 14px;
+    display: flex; flex-direction: column;
+    justify-content: center; gap: 3px;
+    border-left: 1px solid rgba(255,68,0,0.2);
+    flex-shrink: 0; min-width: 110px;
+  }
+  .tsn-status-label { font-size: 9px; color: rgba(255,150,80,0.6); text-transform: uppercase; letter-spacing: 0.08em; }
+  .tsn-status-time  { font-size: 10px; color: #fde68a; font-family: var(--font-mono); }
+  .tsn-status-count { font-size: 18px; font-weight: 900; color: #ff6b35; font-family: var(--font-mono); line-height: 1; }
+
+  /* "All Clear" bar when no active warnings */
+  .tsunami-banner.clear {
+    display: block;
+    background: linear-gradient(90deg, #061a0e, #0a2d14, #061a0e);
+    border-bottom-color: #16a34a;
+    animation: none;
+  }
+  .tsunami-clear-inner {
+    display: flex; align-items: center; gap: 12px;
+    padding: 7px 20px;
+  }
+  .tsunami-clear-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 8px var(--green);
+    animation: pulse-dot 3s infinite; flex-shrink: 0;
+  }
+  .tsunami-clear-text { font-size: 11px; color: #6ee7b7; }
+  .tsunami-clear-text strong { color: #34d399; }
+  .tsunami-src-badges { margin-left: auto; display: flex; gap: 6px; }
+  .tsrc-badge {
+    font-size: 9px; padding: 2px 7px; border-radius: 10px;
+    border: 1px solid; font-weight: 700;
+  }
+  .tsrc-ok  { border-color: #16a34a; color: #4ade80; background: rgba(22,163,74,0.1); }
+  .tsrc-err { border-color: #dc2626; color: #f87171; background: rgba(220,38,38,0.1); }
+  .tsrc-loading { border-color: #4b5563; color: #9ca3af; background: transparent; }
+
+  /* ── TSUNAMI SECTION IN SIDEBAR ── */
+  .tsunami-section {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .tsunami-section-hdr {
+    padding: 8px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer; user-select: none;
+  }
+  .tsunami-section-hdr:hover { background: var(--surface2); }
+  .tsunami-section-title {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: #ff6b35; display: flex; align-items: center; gap: 6px;
+  }
+  .tsunami-section-toggle { font-size: 10px; color: var(--text-muted); }
+  .tsunami-items { padding: 6px 0; }
+  .tsunami-item {
+    padding: 7px 14px;
+    border-bottom: 1px solid rgba(255,68,0,0.08);
+    cursor: pointer; transition: background 0.12s;
+  }
+  .tsunami-item:hover { background: rgba(255,68,0,0.05); }
+  .tsunami-item-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .tsunami-item-title { font-size: 11px; font-weight: 700; color: #fde68a; line-height: 1.3; }
+  .tsunami-item-meta  { font-size: 10px; color: var(--text-muted); }
+  .tsunami-no-data {
+    padding: 16px 14px; text-align: center;
+    font-size: 11px; color: var(--text-muted);
+  }
+
+  /* ── MAP: TSUNAMI RING ── */
+  .eq-tsunami-ring {
+    fill: none;
+    stroke: #00d4ff;
+    stroke-width: 1.5;
+    opacity: 0.6;
+    animation: ring-expand 2s ease-out infinite;
+  }
+  @keyframes ring-expand {
+    0%   { stroke-opacity: 0.8; r: 0; }
+    100% { stroke-opacity: 0; r: 30; }
+  }
+
+  /* ── TSUNAMI MODAL ── */
+  .tsunami-modal-header {
+    background: linear-gradient(135deg, #1a0800, #2d1400);
+    border: 1px solid rgba(255,68,0,0.3);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;
+  }
+  .tsunami-modal-level {
+    font-size: 11px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.1em; margin-bottom: 4px;
+  }
+  .tsunami-modal-title { font-size: 16px; font-weight: 700; color: #fde68a; line-height: 1.3; }
+
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  /* ── LOADING OVERLAY ── */
+  .loading-overlay {
+    position: absolute; inset: 0;
+    background: rgba(10,14,26,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50;
+    flex-direction: column; gap: 12px;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 12px; color: var(--text-muted); }
+
+  /* ── NEW EVENT ALERT BANNER ── */
+  .new-banner {
+    position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+    color: #fff; font-size: 12px; font-weight: 700;
+    padding: 8px 20px; border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0,212,255,0.4);
+    z-index: 200;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .new-banner.show { opacity: 1; }
+
+  /* ── SEISMOGRAPH ANIMATION ── */
+  .seismo-wave {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 30px;
+    overflow: hidden; opacity: 0.3;
+  }
+  #seismoCanvas { width: 100%; height: 30px; }
+
+  /* ══════════════════════════════════════════
+     MOBILE RESPONSIVE — breakpoint 768px
+     แนวคิด: stack vertical, map เต็มหน้าจอ,
+     sidebar กลายเป็น bottom panel
+  ══════════════════════════════════════════ */
+  @media (max-width: 768px) {
+
+    /* Header compact */
+    .header { padding: 8px 12px; }
+    .seismo-logo { width: 30px; height: 30px; font-size: 14px; flex-shrink: 0; }
+    .header h1 { font-size: 13px; }
+    .header h1 span { font-size: 9px; }
+    .poll-countdown { display: none; }
+    .ws-badge { font-size: 9px; padding: 3px 7px; }
+    .clock { font-size: 11px; padding: 3px 7px; }
+
+    /* Tsunami banner compact */
+    .tsunami-banner-status { display: none; }
+    .tsunami-clear-text { font-size: 10px; }
+    .tsrc-badge { display: none; }
+
+    /* Stats — 3 คอลัมน์ */
+    .stats-row { grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px 10px; }
+    .stat-card { padding: 8px 10px; }
+    .stat-value { font-size: 18px; }
+    .stat-label { font-size: 9px; }
+    .stat-sub { display: none; }
+
+    /* Filter bar — horizontal scroll */
+    .filter-bar {
+      padding: 8px 10px; gap: 6px;
+      overflow-x: auto; flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+    .filter-sep { display: none; }
+    .filter-label { display: none; }
+    .refresh-btn { margin-left: 0; flex-shrink: 0; font-size: 11px; padding: 5px 10px; }
+
+    /* Main layout — vertical stack */
+    .main { grid-template-columns: 1fr; grid-template-rows: auto auto; height: auto; }
+
+    /* Map 55vh — chart drawer ปิดเป็น default บน mobile อยู่แล้ว */
+    .map-area { grid-row: auto; height: 55vh; }
+    #leafletMap { height: 100% !important; }
+    #leafletMap.chart-open { height: 100% !important; } /* mobile ไม่ใช้ chart-open */
+    .chart-row.open { height: 160px; }          /* drawer เล็กลงบน mobile */
+    .chart-drawer-toggle { padding: 5px 10px; }
+    .chart-drawer-label { font-size: 9px; }
+    .map-legend.chart-open { bottom: 10px; }    /* legend ไม่เลื่อนบน mobile */
+
+    /* Legend & controls เล็กลง */
+    .map-legend { bottom: 8px; padding: 6px 8px; font-size: 9px; }
+    .map-legend-title { font-size: 8px; }
+    .legend-row { margin-bottom: 2px; gap: 4px; }
+    .map-controls-overlay { top: 6px; right: 44px; gap: 4px; }
+    .map-overlay-btn { font-size: 9px; padding: 4px 8px; }
+
+    /* Right panel — bottom sheet */
+    .right-panel { grid-row: auto; max-height: 45vh; border-top: 2px solid var(--border); overflow: hidden; display: flex; flex-direction: column; }
+    .tsunami-items { max-height: 110px; overflow-y: auto; }
+    .event-list { flex: 1; min-height: 0; }
+    .event-item { padding: 8px 10px; }
+    .mag-badge { width: 34px; height: 34px; font-size: 13px; }
+    .event-place { font-size: 11px; }
+
+    /* Status bar */
+    .status-bar { padding: 4px 10px; gap: 8px; }
+    .log-ticker { display: none; }
+
+    /* Modal — bottom sheet on mobile */
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal { border-radius: 16px 16px 0 0; max-width: 100%; width: 100%; max-height: 85vh; overflow-y: auto; padding: 20px 16px; }
+    .modal-mag { font-size: 44px; }
+    .modal-grid { gap: 8px; }
+
+    /* Toast */
+    .toast-container { right: 10px; left: 10px; top: auto; bottom: 48vh; }
+    .toast { max-width: 100%; font-size: 11px; }
+    .new-banner { bottom: 48vh; font-size: 11px; }
+  }
+
+  /* Extra small < 420px */
+  @media (max-width: 420px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .header h1 span { display: none; }
+    .clock { display: none; }
+    .map-area { height: 50vh; }
+    .right-panel { max-height: 50vh; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="seismo-logo">🌍</div>
+    <div>
+      <h1>SeismoWatch <span>Realtime Earthquake &amp; Tsunami Monitor</span></h1>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="ws-badge connecting" id="wsBadge">
+      <div class="ws-dot"></div>
+      <span id="wsLabel">EMSC WS</span>
+    </div>
+    <div class="poll-countdown" id="pollCountdown">Poll in <span id="countdown">60</span>s</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<!-- TSUNAMI ALERT BANNER -->
+<div class="tsunami-banner" id="tsunamiBanner">
+  <!-- filled dynamically -->
+</div>
+
+<!-- STATS ROW -->
+<div class="stats-row">
+  <div class="stat-card" style="--accent-color: var(--text-muted)">
+    <div class="stat-label">Total Events</div>
+    <div class="stat-value" id="statTotal">—</div>
+    <div class="stat-sub">Last 24h</div>
+  </div>
+  <div class="stat-card" style="--accent-color: var(--green)">
+    <div class="stat-label">M &lt; 4.0</div>
+    <div class="stat-value" id="statMinor">—</div>
+    <div class="stat-sub">Minor</div>
+  </div>
+  <div class="stat-card" style="--accent-color: var(--yellow)">
+    <div class="stat-label">M 4.0–4.9</div>
+    <div class="stat-value" id="statMod">—</div>
+    <div class="stat-sub">Light-Moderate</div>
+  </div>
+  <div class="stat-card" style="--accent-color: var(--orange)">
+    <div class="stat-label">M 5.0–5.9</div>
+    <div class="stat-value" id="statStrong">—</div>
+    <div class="stat-sub">Strong</div>
+  </div>
+  <div class="stat-card" style="--accent-color: var(--red)">
+    <div class="stat-label">M 6.0+</div>
+    <div class="stat-value" id="statMajor">—</div>
+    <div class="stat-sub">Major+</div>
+  </div>
+  <div class="stat-card" style="--accent-color: var(--accent)">
+    <div class="stat-label">Largest Event</div>
+    <div class="stat-value" id="statMax">—</div>
+    <div class="stat-sub" id="statMaxLoc">—</div>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <span class="filter-label">Min Mag:</span>
+  <button class="filter-btn active" onclick="setMagFilter(0, this)">All</button>
+  <button class="filter-btn" onclick="setMagFilter(4, this)">M4+</button>
+  <button class="filter-btn" onclick="setMagFilter(5, this)">M5+</button>
+  <button class="filter-btn" onclick="setMagFilter(6, this)">M6+</button>
+  <div class="filter-sep"></div>
+  <span class="filter-label">Source:</span>
+  <button class="filter-btn active" onclick="setSourceFilter('all', this)">All</button>
+  <button class="filter-btn" onclick="setSourceFilter('USGS', this)">USGS</button>
+  <button class="filter-btn" onclick="setSourceFilter('EMSC', this)">EMSC</button>
+  <button class="filter-btn" onclick="setSourceFilter('GEOFON', this)">GEOFON</button>
+  <div class="filter-sep"></div>
+  <span class="filter-label">Time:</span>
+  <select class="filter-select" id="timeFilter" onchange="setTimeFilter(this.value)">
+    <option value="1">1 Hour</option>
+    <option value="6">6 Hours</option>
+    <option value="24" selected>24 Hours</option>
+    <option value="72">3 Days</option>
+    <option value="168">7 Days</option>
+  </select>
+  <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()">
+    <span id="refreshIcon">↻</span> Refresh Now
+  </button>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main">
+  <!-- MAP AREA -->
+  <div class="map-area" id="mapArea">
+    <div class="loading-overlay" id="mapLoading">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading earthquake data…</div>
+    </div>
+
+    <!-- Leaflet Map -->
+    <div id="leafletMap"></div>
+
+    <!-- Map Legend -->
+    <div class="map-legend" id="mapLegend">
+      <div class="map-legend-title">Magnitude</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#22c55e;width:7px;height:7px"></div><span style="color:#94a3b8">&lt; 4.0 Minor</span></div>
+      <div class="legend-row"><div class="legend-dot" style="background:#eab308;width:10px;height:10px"></div><span style="color:#94a3b8">4.0–4.9 Light</span></div>
+      <div class="legend-row"><div class="legend-dot" style="background:#f97316;width:13px;height:13px"></div><span style="color:#94a3b8">5.0–5.9 Moderate</span></div>
+      <div class="legend-row"><div class="legend-dot" style="background:#ef4444;width:16px;height:16px"></div><span style="color:#94a3b8">6.0–6.9 Strong</span></div>
+      <div class="legend-row"><div class="legend-dot" style="background:#fca5a5;width:20px;height:20px"></div><span style="color:#94a3b8">7.0+ Major</span></div>
+      <div style="margin-top:7px; padding-top:6px; border-top:1px solid #1e2d45;">
+        <div class="legend-row"><div class="legend-line" style="background:linear-gradient(90deg,#ff4400,#ff8800);height:2px;border-radius:1px"></div><span style="color:#ff8855">Ring of Fire</span></div>
+        <div class="legend-row"><div class="legend-line" style="background:#00d4ff;height:1px;border-radius:1px;opacity:0.6"></div><span style="color:#64748b">Tectonic Plates</span></div>
+      </div>
+    </div>
+
+    <!-- Map Layer Toggle Buttons -->
+    <div class="map-controls-overlay">
+      <button class="map-overlay-btn active" id="btnRingOfFire" onclick="toggleRingOfFire()">
+        🔥 Ring of Fire
+      </button>
+      <button class="map-overlay-btn" id="btnPlates" onclick="togglePlates()">
+        🗺 Tectonic Plates
+      </button>
+    </div>
+
+    <!-- Chart Drawer Toggle -->
+    <div class="chart-drawer-toggle" id="chartDrawerToggle" onclick="toggleChartDrawer()">
+      <div class="chart-drawer-label">
+        <span class="cd-dot"></span>
+        📊 Analytics — Magnitude Distribution &amp; Timeline
+      </div>
+      <span class="chart-drawer-arrow" id="chartDrawerArrow">▲</span>
+    </div>
+
+    <div class="chart-row" id="chartRow">
+      <div class="chart-panel">
+        <div class="chart-panel-title">Magnitude Distribution</div>
+        <canvas id="magChart"></canvas>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-panel-title">Events Over Time (24h)</div>
+        <canvas id="timeChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <!-- TSUNAMI SECTION -->
+    <div class="tsunami-section" id="tsunamiSection">
+      <div class="tsunami-section-hdr" onclick="toggleTsunamiSection()">
+        <span class="tsunami-section-title">
+          🌊 Tsunami Warnings
+          <span id="tsunamiSectionBadge" style="background:#b91c1c;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;display:none">0</span>
+        </span>
+        <span class="tsunami-section-toggle" id="tsunamiToggleIcon">▼</span>
+      </div>
+      <div class="tsunami-items" id="tsunamiItems">
+        <div class="tsunami-no-data" id="tsunamiNoData">
+          <span style="font-size:20px;display:block;margin-bottom:6px">✅</span>
+          กำลังตรวจสอบ NOAA/PTWC และ GDACS…
+        </div>
+      </div>
+    </div>
+
+    <div class="table-header">
+      <span class="table-header-title">Recent Events</span>
+      <span class="event-count" id="eventCount">0 events</span>
+    </div>
+    <div class="event-list" id="eventList">
+      <div style="padding:30px; text-align:center; color:var(--text-muted); font-size:12px;">
+        กำลังโหลดข้อมูลแผ่นดินไหว…
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <div class="status-item">
+    <div class="status-dot" id="dotUSGS" style="background:var(--text-muted)"></div>
+    <span>USGS</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" id="dotEMSC" style="background:var(--text-muted)"></div>
+    <span>EMSC</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" id="dotGEOFON" style="background:var(--text-muted)"></div>
+    <span>GEOFON</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" id="dotNOAA" style="background:var(--text-muted)"></div>
+    <span>NOAA/PTWC</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" id="dotGDACS" style="background:var(--text-muted)"></div>
+    <span>GDACS</span>
+  </div>
+  <div style="margin-left:0px; color:var(--text-muted)">|</div>
+  <div class="status-item" id="lastUpdated">Last update: —</div>
+  <div class="log-ticker" id="logTicker">System ready</div>
+</div>
+
+<!-- TSUNAMI DETAIL MODAL -->
+<div class="modal-overlay" id="tsunamiModalOverlay" onclick="closeTsunamiModal(event)">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeTsunamiModalDirect()">✕</button>
+    <div class="tsunami-modal-header">
+      <div class="tsunami-modal-level" id="tmLevel">—</div>
+      <div class="tsunami-modal-title" id="tmTitle">—</div>
+    </div>
+    <div class="modal-grid">
+      <div class="modal-field">
+        <div class="modal-field-label">Source</div>
+        <div class="modal-field-value" id="tmSource">—</div>
+      </div>
+      <div class="modal-field">
+        <div class="modal-field-label">Issued (THA)</div>
+        <div class="modal-field-value" id="tmTime" style="font-size:11px">—</div>
+      </div>
+      <div class="modal-field" style="grid-column:1/-1">
+        <div class="modal-field-label">Affected Regions</div>
+        <div class="modal-field-value" id="tmRegions" style="font-size:11px;white-space:pre-wrap;font-family:var(--font-ui);font-weight:500;line-height:1.6">—</div>
+      </div>
+      <div class="modal-field" style="grid-column:1/-1">
+        <div class="modal-field-label">Description</div>
+        <div class="modal-field-value" id="tmDesc" style="font-size:11px;font-family:var(--font-ui);font-weight:400;line-height:1.6;white-space:pre-wrap">—</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;text-align:center">
+      <a id="tmLink" href="#" target="_blank" rel="noopener"
+         style="font-size:11px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:5px 14px;border-radius:6px;display:inline-block">
+        → ดูข้อมูลจากแหล่งต้นฉบับ
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div class="modal-mag" id="modalMag">—</div>
+    <div class="modal-place" id="modalPlace">—</div>
+    <div class="modal-grid">
+      <div class="modal-field">
+        <div class="modal-field-label">Time (THA)</div>
+        <div class="modal-field-value" id="modalTime">—</div>
+      </div>
+      <div class="modal-field">
+        <div class="modal-field-label">Depth</div>
+        <div class="modal-field-value" id="modalDepth">—</div>
+      </div>
+      <div class="modal-field">
+        <div class="modal-field-label">Latitude</div>
+        <div class="modal-field-value" id="modalLat">—</div>
+      </div>
+      <div class="modal-field">
+        <div class="modal-field-label">Longitude</div>
+        <div class="modal-field-value" id="modalLon">—</div>
+      </div>
+      <div class="modal-field">
+        <div class="modal-field-label">Source</div>
+        <div class="modal-field-value" id="modalSource">—</div>
+      </div>
+      <div class="modal-field">
+        <div class="modal-field-label">Event ID</div>
+        <div class="modal-field-value" id="modalId" style="font-size:10px;">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- NEW EVENT BANNER -->
+<div class="new-banner" id="newBanner">🌊 New earthquake detected</div>
+
+<script>
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let allEvents = [];
+let filteredEvents = [];
+let magFilter = 0;
+let sourceFilter = 'all';
+let timeFilterHours = 24;
+let wsConn = null;
+let countdownVal = 60;
+let pollInterval = null;
+let countdownInterval = null;
+let magChart = null;
+let timeChart = null;
+let knownIds = new Set();
+
+// ══════════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour12: false });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ══════════════════════════════════════════
+// MAG COLOR
+// ══════════════════════════════════════════
+function getMagClass(m) {
+  if (m < 4) return 'mag-1';
+  if (m < 5) return 'mag-2';
+  if (m < 6) return 'mag-3';
+  if (m < 7) return 'mag-4';
+  return 'mag-5';
+}
+function getMagColor(m) {
+  if (m < 4) return '#22c55e';
+  if (m < 5) return '#eab308';
+  if (m < 6) return '#f97316';
+  if (m < 7) return '#ef4444';
+  return '#fca5a5';
+}
+function getMagColorHex(m) {
+  if (m < 4) return '#22c55e';
+  if (m < 5) return '#eab308';
+  if (m < 6) return '#f97316';
+  if (m < 7) return '#ef4444';
+  return '#b91c1c';
+}
+
+// ══════════════════════════════════════════
+// FORMAT DATE THA
+// ══════════════════════════════════════════
+function formatTHA(ts) {
+  const d = new Date(ts);
+  return d.toLocaleString('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  });
+}
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'Just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h/24)}d ago`;
+}
+
+// ══════════════════════════════════════════
+// CORS PROXY — multi-fallback สำหรับ GitHub Pages
+// ══════════════════════════════════════════
+const CORS_PROXIES = [
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://cors-anywhere.herokuapp.com/${url}`,
+];
+const proxyStatus = { idx: 0, fails: {} }; // track which proxy works
+
+async function fetchWithCORSFallback(directUrl, sourceLabel) {
+  // 1. Try direct first (works for USGS, sometimes EMSC)
+  try {
+    const res = await fetchWithTimeout(directUrl, 8000);
+    if (res.ok) return res;
+  } catch(e) { /* fall through to proxy */ }
+
+  // 2. Try proxies in order, starting from last known good
+  for (let attempt = 0; attempt < CORS_PROXIES.length; attempt++) {
+    const idx = (proxyStatus.idx + attempt) % CORS_PROXIES.length;
+    const proxyUrl = CORS_PROXIES[idx](directUrl);
+    try {
+      const res = await fetchWithTimeout(proxyUrl, 10000);
+      if (res.ok) {
+        proxyStatus.idx = idx; // remember working proxy
+        setLog(`${sourceLabel}: using proxy #${idx+1}`);
+        return res;
+      }
+    } catch(e) { proxyStatus.fails[idx] = (proxyStatus.fails[idx]||0) + 1; }
+  }
+  throw new Error(`All CORS proxies failed for ${sourceLabel}`);
+}
+
+function fetchWithTimeout(url, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
+// ══════════════════════════════════════════
+// SOURCE STATUS HELPER
+// ══════════════════════════════════════════
+function setSourceStatus(id, status, tooltip) {
+  const dot = document.getElementById('dot' + id);
+  const colors = { ok: 'var(--green)', error: 'var(--red)', warn: 'var(--yellow)', loading: 'var(--text-muted)' };
+  dot.style.background = colors[status] || colors.loading;
+  dot.title = tooltip || '';
+}
+
+// ══════════════════════════════════════════
+// FETCH USGS — direct CORS OK
+// ══════════════════════════════════════════
+async function fetchUSGS() {
+  const endtime = new Date().toISOString();
+  const starttime = new Date(Date.now() - timeFilterHours * 3600000).toISOString();
+  const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${starttime}&endtime=${endtime}&minmagnitude=2.5&orderby=time&limit=250`;
+  setSourceStatus('USGS', 'loading', 'Fetching…');
+  try {
+    const res = await fetchWithTimeout(url, 12000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.features) throw new Error('No features in response');
+    setSourceStatus('USGS', 'ok', `OK — ${data.features.length} events`);
+    setLog(`USGS: ${data.features.length} events loaded`);
+    return data.features
+      .filter(f => f.geometry && f.properties.mag !== null)
+      .map(f => ({
+        id: 'USGS_' + f.id,
+        mag: parseFloat(f.properties.mag),
+        place: f.properties.place || 'Unknown',
+        time: f.properties.time,
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0],
+        depth: f.geometry.coordinates[2],
+        source: 'USGS',
+        url: f.properties.url
+      }));
+  } catch(e) {
+    setSourceStatus('USGS', 'error', `Error: ${e.message}`);
+    setLog(`⚠ USGS: ${e.message}`);
+    showSourceError('USGS', e.message);
+    return [];
+  }
+}
+
+// ══════════════════════════════════════════
+// FETCH EMSC — direct + proxy fallback
+// ══════════════════════════════════════════
+async function fetchEMSC() {
+  const endtime = new Date().toISOString().split('.')[0];
+  const starttime = new Date(Date.now() - timeFilterHours * 3600000).toISOString().split('.')[0];
+  const url = `https://www.seismicportal.eu/fdsnws/event/1/query?format=json&starttime=${starttime}&endtime=${endtime}&minmag=2.5&limit=200&orderby=time`;
+  setSourceStatus('EMSC', 'loading', 'Fetching…');
+  try {
+    const res = await fetchWithCORSFallback(url, 'EMSC');
+    const text = await res.text();
+    const data = JSON.parse(text);
+    if (!data.features) throw new Error('No features in response');
+    setSourceStatus('EMSC', 'ok', `OK — ${data.features.length} events`);
+    setLog(`EMSC: ${data.features.length} events loaded`);
+    return data.features
+      .filter(f => f.geometry && f.properties.mag !== null)
+      .map(f => ({
+        id: 'EMSC_' + f.id,
+        mag: parseFloat(f.properties.mag),
+        place: f.properties.flynn_region || f.properties.place || 'Unknown',
+        time: new Date(f.properties.time).getTime(),
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0],
+        depth: f.properties.depth,
+        source: 'EMSC'
+      }));
+  } catch(e) {
+    setSourceStatus('EMSC', 'error', `Error: ${e.message}`);
+    setLog(`⚠ EMSC: ${e.message}`);
+    showSourceError('EMSC', e.message);
+    return [];
+  }
+}
+
+// ══════════════════════════════════════════
+// FETCH GEOFON — ต้องใช้ proxy เสมอบน GitHub Pages
+// ══════════════════════════════════════════
+async function fetchGEOFON() {
+  const endtime = new Date().toISOString().split('.')[0];
+  const starttime = new Date(Date.now() - timeFilterHours * 3600000).toISOString().split('.')[0];
+  const directUrl = `https://geofon.gfz-potsdam.de/fdsnws/event/1/query?format=json&starttime=${starttime}&endtime=${endtime}&minmag=2.5&limit=200&orderby=time`;
+  setSourceStatus('GEOFON', 'loading', 'Fetching via proxy…');
+  try {
+    const res = await fetchWithCORSFallback(directUrl, 'GEOFON');
+    const text = await res.text();
+    // GEOFON อาจตอบ XML error — ตรวจก่อน parse
+    if (text.trim().startsWith('<')) throw new Error('Got XML (CORS blocked) — proxy may be needed');
+    const data = JSON.parse(text);
+    if (!data.features) throw new Error('No features in response');
+    setSourceStatus('GEOFON', 'ok', `OK — ${data.features.length} events`);
+    setLog(`GEOFON: ${data.features.length} events loaded`);
+    return data.features
+      .filter(f => f.geometry && f.properties.mag !== null)
+      .map(f => ({
+        id: 'GEOFON_' + f.id,
+        mag: parseFloat(f.properties.mag),
+        place: f.properties.flynn_region || f.properties.place || 'Unknown',
+        time: new Date(f.properties.time).getTime(),
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0],
+        depth: f.properties.depth,
+        source: 'GEOFON'
+      }));
+  } catch(e) {
+    // GEOFON CORS fail = non-fatal: warn สีเหลือง ไม่ error แดง
+    setSourceStatus('GEOFON', 'warn', `CORS restricted: ${e.message}`);
+    setLog(`⚠ GEOFON ไม่สามารถโหลดได้ (CORS) — ใช้ USGS+EMSC แทน`);
+    return [];
+  }
+}
+
+// ══════════════════════════════════════════
+// SOURCE ERROR NOTIFICATION (non-blocking)
+// ══════════════════════════════════════════
+const shownErrors = new Set();
+function showSourceError(source, msg) {
+  const key = source + '_' + msg.slice(0,30);
+  if (shownErrors.has(key)) return; // แสดงครั้งเดียวต่อ session
+  shownErrors.add(key);
+  // แสดงเป็น subtle status bar warning เท่านั้น ไม่ popup
+  console.warn(`[${source}] ${msg}`);
+}
+
+// ══════════════════════════════════════════
+// MERGE & DEDUPLICATE
+// ══════════════════════════════════════════
+function mergeEvents(arrays) {
+  const all = arrays.flat().filter(e => e && e.mag !== null && !isNaN(e.mag));
+  // Deduplicate by proximity (same time ±60s, same location ±0.5°)
+  const deduped = [];
+  const seen = new Set();
+  for (const ev of all.sort((a, b) => b.time - a.time)) {
+    let isDup = false;
+    for (const d of deduped) {
+      if (Math.abs(d.time - ev.time) < 90000 &&
+          Math.abs(d.lat - ev.lat) < 0.6 &&
+          Math.abs(d.lon - ev.lon) < 0.6 &&
+          Math.abs(d.mag - ev.mag) < 0.4) {
+        isDup = true;
+        // prefer USGS
+        if (ev.source === 'USGS') { Object.assign(d, ev); }
+        break;
+      }
+    }
+    if (!isDup) deduped.push(ev);
+  }
+  return deduped;
+}
+
+// ══════════════════════════════════════════
+// FETCH ALL — ใช้ allSettled ไม่ให้ source นึง crash ทั้งหมด
+// ══════════════════════════════════════════
+async function fetchAll() {
+  document.getElementById('mapLoading').style.display = 'flex';
+  document.getElementById('refreshBtn').classList.add('loading');
+  document.getElementById('refreshIcon').textContent = '⟳';
+
+  setLog('Fetching from USGS, EMSC, GEOFON…');
+
+  // allSettled = แม้ source นึง fail ยังได้ข้อมูลจาก source อื่น
+  const results = await Promise.allSettled([fetchUSGS(), fetchEMSC(), fetchGEOFON()]);
+  const [usgsR, emscR, geofonR] = results;
+
+  const usgs   = usgsR.status   === 'fulfilled' ? usgsR.value   : [];
+  const emsc   = emscR.status   === 'fulfilled' ? emscR.value   : [];
+  const geofon = geofonR.status === 'fulfilled' ? geofonR.value : [];
+
+  // log ถ้า source ใด rejected (ไม่ใช่แค่ error ภายใน)
+  if (usgsR.status   === 'rejected') { setSourceStatus('USGS',   'error', usgsR.reason); }
+  if (emscR.status   === 'rejected') { setSourceStatus('EMSC',   'error', emscR.reason); }
+  if (geofonR.status === 'rejected') { setSourceStatus('GEOFON', 'warn',  geofonR.reason); }
+
+  // ถ้าไม่มีข้อมูลเลย แสดง error state
+  const totalRaw = usgs.length + emsc.length + geofon.length;
+  if (totalRaw === 0) {
+    document.getElementById('eventList').innerHTML = `
+      <div style="padding:40px 20px;text-align:center;color:var(--text-muted);">
+        <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+        <div style="font-size:13px;font-weight:700;color:var(--orange);margin-bottom:8px;">ไม่สามารถโหลดข้อมูลได้</div>
+        <div style="font-size:11px;line-height:1.8;">
+          อาจเกิดจาก CORS หรือ network ขัดข้อง<br>
+          ลอง <strong style="color:var(--accent)">Refresh Now</strong> อีกครั้ง<br>
+          หรือเปิดใน browser อื่น
+        </div>
+      </div>`;
+    document.getElementById('mapLoading').style.display = 'none';
+    document.getElementById('refreshBtn').classList.remove('loading');
+    document.getElementById('refreshIcon').textContent = '↻';
+    setLog(`⚠ ไม่ได้รับข้อมูลจากทุกแหล่ง — ตรวจสอบ console สำหรับรายละเอียด`);
+    return;
+  }
+
+  const merged = mergeEvents([usgs, emsc, geofon]);
+
+  // detect new events
+  const prevIds = new Set(allEvents.map(e => e.id));
+  const newEvs = merged.filter(e => !prevIds.has(e.id));
+
+  if (allEvents.length > 0 && newEvs.length > 0) {
+    const big = newEvs.filter(e => e.mag >= 5.0);
+    if (big.length > 0) {
+      big.forEach(e => showToast(`M${e.mag.toFixed(1)} — ${e.place}`, e.mag >= 6 ? 'high' : 'med'));
+    }
+    showNewBanner(`${newEvs.length} new event${newEvs.length>1?'s':''} detected`);
+  }
+
+  allEvents = merged;
+  knownIds = new Set(merged.map(e => e.id));
+
+  applyFilters();
+  updateStats();
+  updateCharts();
+  renderMap();
+  updateLastUpdated();
+
+  document.getElementById('mapLoading').style.display = 'none';
+  document.getElementById('refreshBtn').classList.remove('loading');
+  document.getElementById('refreshIcon').textContent = '↻';
+  const srcSummary = [
+    usgs.length   ? `USGS:${usgs.length}`   : '✗USGS',
+    emsc.length   ? `EMSC:${emsc.length}`   : '✗EMSC',
+    geofon.length ? `GEOFON:${geofon.length}` : '✗GEOFON',
+  ].join(' ');
+  setLog(`Total: ${merged.length} unique events | ${srcSummary}`);
+
+  // Re-evaluate USGS tsunami potential events after earthquake data refreshes
+  renderTsunamiBanner();
+  renderTsunamiSidebar();
+  renderTsunamiMapMarkers();
+}
+
+// ══════════════════════════════════════════
+// APPLY FILTERS
+// ══════════════════════════════════════════
+function applyFilters() {
+  const cutoff = Date.now() - timeFilterHours * 3600000;
+  filteredEvents = allEvents.filter(e => {
+    if (e.mag < magFilter) return false;
+    if (sourceFilter !== 'all' && e.source !== sourceFilter) return false;
+    if (e.time < cutoff) return false;
+    return true;
+  });
+  renderList();
+  renderMap();
+}
+
+function setMagFilter(val, btn) {
+  magFilter = val;
+  document.querySelectorAll('.filter-bar .filter-btn').forEach(b => {
+    if (['All','M4+','M5+','M6+'].some(t => b.textContent === t)) b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function setSourceFilter(val, btn) {
+  sourceFilter = val;
+  document.querySelectorAll('.filter-bar .filter-btn').forEach(b => {
+    if (['All','USGS','EMSC','GEOFON'].some(t => b.textContent === t)) b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function setTimeFilter(val) {
+  timeFilterHours = parseInt(val);
+  fetchAll();
+}
+
+// ══════════════════════════════════════════
+// RENDER LIST
+// ══════════════════════════════════════════
+function renderList() {
+  const list = document.getElementById('eventList');
+  document.getElementById('eventCount').textContent = `${filteredEvents.length} events`;
+
+  if (filteredEvents.length === 0) {
+    list.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted);font-size:12px;">ไม่พบข้อมูลที่ตรงกับเงื่อนไข</div>';
+    return;
+  }
+
+  const html = filteredEvents.slice(0, 150).map((ev, i) => `
+    <div class="event-item" onclick="openModal(${i}); panToEvent(filteredEvents[${i}])" id="item_${ev.id.replace(/[^a-z0-9]/gi,'_')}">
+      <div class="mag-badge ${getMagClass(ev.mag)}">${ev.mag !== null ? ev.mag.toFixed(1) : '?'}</div>
+      <div class="event-info">
+        <div class="event-place">${ev.place}</div>
+        <div class="event-meta">
+          <span>${timeAgo(ev.time)}</span>
+          <span>⬇ ${ev.depth ? ev.depth.toFixed(0) : '?'} km</span>
+          <span class="event-source">${ev.source}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  list.innerHTML = html;
+}
+
+// ══════════════════════════════════════════
+// UPDATE STATS
+// ══════════════════════════════════════════
+function updateStats() {
+  const evs = allEvents;
+  document.getElementById('statTotal').textContent = evs.length;
+  document.getElementById('statMinor').textContent = evs.filter(e => e.mag < 4).length;
+  document.getElementById('statMod').textContent = evs.filter(e => e.mag >= 4 && e.mag < 5).length;
+  document.getElementById('statStrong').textContent = evs.filter(e => e.mag >= 5 && e.mag < 6).length;
+  document.getElementById('statMajor').textContent = evs.filter(e => e.mag >= 6).length;
+  const maxEv = evs.reduce((a, b) => (b.mag > a.mag ? b : a), {mag: 0});
+  if (maxEv.mag > 0) {
+    document.getElementById('statMax').textContent = 'M' + maxEv.mag.toFixed(1);
+    document.getElementById('statMaxLoc').textContent = (maxEv.place || '').slice(0, 22);
+  }
+}
+
+// ══════════════════════════════════════════
+// UPDATE LAST UPDATED
+// ══════════════════════════════════════════
+function updateLastUpdated() {
+  const now = new Date().toLocaleTimeString('th-TH', {timeZone:'Asia/Bangkok', hour12:false});
+  document.getElementById('lastUpdated').textContent = `Last update: ${now}`;
+}
+
+// ══════════════════════════════════════════
+// CHARTS
+// ══════════════════════════════════════════
+function updateCharts() {
+  updateMagChart();
+  updateTimeChart();
+}
+
+function updateMagChart() {
+  const bins = { '2.0-2.9': 0, '3.0-3.9': 0, '4.0-4.9': 0, '5.0-5.9': 0, '6.0-6.9': 0, '7.0+': 0 };
+  allEvents.forEach(e => {
+    const m = e.mag;
+    if (m < 3) bins['2.0-2.9']++;
+    else if (m < 4) bins['3.0-3.9']++;
+    else if (m < 5) bins['4.0-4.9']++;
+    else if (m < 6) bins['5.0-5.9']++;
+    else if (m < 7) bins['6.0-6.9']++;
+    else bins['7.0+']++;
+  });
+  const labels = Object.keys(bins);
+  const values = Object.values(bins);
+  const colors = ['#22c55e','#84cc16','#eab308','#f97316','#ef4444','#b91c1c'];
+  const ctx = document.getElementById('magChart').getContext('2d');
+  if (magChart) magChart.destroy();
+  magChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: '#1e2d45' } },
+        y: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: '#1e2d45' } }
+      }
+    }
+  });
+}
+
+function updateTimeChart() {
+  // Last 24h in 2h buckets
+  const buckets = [];
+  const labels = [];
+  const now = Date.now();
+  for (let i = 12; i >= 0; i--) {
+    const start = now - (i+1) * 2 * 3600000;
+    const end = now - i * 2 * 3600000;
+    buckets.push(allEvents.filter(e => e.time >= start && e.time < end).length);
+    const d = new Date(end);
+    labels.push(d.toLocaleTimeString('th-TH', {timeZone:'Asia/Bangkok', hour:'2-digit', minute:'2-digit', hour12:false}));
+  }
+  const ctx = document.getElementById('timeChart').getContext('2d');
+  if (timeChart) timeChart.destroy();
+  timeChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: buckets,
+        borderColor: '#00d4ff',
+        backgroundColor: 'rgba(0,212,255,0.08)',
+        borderWidth: 1.5,
+        pointRadius: 2,
+        pointBackgroundColor: '#00d4ff',
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 8 }, maxRotation: 45 }, grid: { color: '#1e2d45' } },
+        y: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: '#1e2d45' } }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════
+// LEAFLET MAP — init & state
+// ══════════════════════════════════════════
+let leafletMap = null;
+let eqLayerGroup = null;
+let tsunamiLayerGroup = null;
+let ringOfFireLayer = null;
+let tectonicLayer = null;
+let ringOfFireVisible = true;
+let platesVisible = false;
+
+// Ring of Fire coordinates (major segments, simplified from USGS data)
+// Ring of Fire — แบ่ง segment ตัดที่ dateline (180°) ไม่ให้ลากเส้นตรงข้ามแผนที่
+const RING_OF_FIRE_COORDS = [
+  // South America west coast (ชิลี → เปรู → เอกวาดอร์)
+  [[-55,-68],[-50,-73],[-45,-74],[-40,-73],[-35,-71],[-30,-71],[-25,-70],[-20,-70],[-15,-76],[-10,-78],[-5,-80],[0,-80],[5,-77],[10,-76]],
+  // Central America & Mexico
+  [[10,-76],[12,-84],[14,-90],[16,-92],[18,-96],[20,-103],[22,-105],[24,-108]],
+  // North America west coast (เม็กซิโก → แคนาดา)
+  [[24,-108],[28,-111],[32,-117],[36,-121],[40,-124],[44,-124],[48,-124],[52,-130],[55,-132],[58,-136],[60,-144],[57,-153],[55,-160],[52,-165]],
+  // Aleutian Islands WEST side (ก่อนข้าม dateline) — จาก 165W → 180W
+  [[52,-165],[54,-168],[56,-172],[58,-176],[59,-179]],
+  // Aleutian Islands EAST side (หลังข้าม dateline) — จาก 180E → 165E
+  [[59,179],[58,175],[56,170],[54,167],[52,163],[50,158],[48,153]],
+  // Kamchatka → Japan
+  [[48,153],[44,148],[42,145],[40,142],[36,140],[32,135],[28,130]],
+  // Philippines / Taiwan / Ryukyu
+  [[28,130],[24,122],[22,121],[18,122],[14,124],[10,125],[8,126],[4,127],[0,128]],
+  // Indonesia (Sulawesi → Maluku)
+  [[0,128],[-2,130],[-4,132],[-6,134],[-8,128],[-8,122],[-8,115],[-7,107],[-6,106]],
+  // Banda Sea → Timor
+  [[-8,115],[-9,120],[-10,125],[-10,130],[-9,140]],
+  // Papua New Guinea → Solomon Islands
+  [[-9,140],[-6,145],[-4,150],[-6,154],[-8,157],[-10,161],[-12,165],[-15,167]],
+  // Vanuatu → Tonga (ก่อน dateline)
+  [[-15,167],[-18,168],[-20,170],[-22,172],[-25,172],[-28,175],[-30,178],[-32,179]],
+  // Tonga → Kermadec → NZ (หลัง dateline ฝั่ง -180)
+  [[-32,-179],[-35,-177],[-38,-175],[-40,-172],[-42,-171]],
+  // New Zealand (North→South)
+  [[-37,175],[-39,176],[-41,174],[-43,172],[-44,170],[-46,168]],
+  // South Pacific → South America closure
+  [[-46,168],[-50,168],[-55,160],[-58,155]],
+  // Antarctic closure segment west
+  [[-58,155],[-60,140],[-60,120],[-60,100],[-60,80],[-60,60],[-60,40],[-60,20],[-60,0],[-60,-20],[-60,-40],[-60,-60],[-58,-68],[-55,-68]],
+];
+
+// Tectonic plate boundaries (simplified major ones)
+const TECTONIC_SIMPLIFIED = [
+  // Mid-Atlantic Ridge
+  [[70,-20],[65,-18],[60,-16],[55,-15],[50,-14],[40,-15],[30,-15],[20,-20],[10,-20],[0,-15],[-10,-14],[-20,-13],[-30,-14],[-40,-15],[-50,-16],[-55,-20]],
+  // Eurasian / African (Mediterranean)
+  [[35,35],[33,28],[30,20],[25,15],[20,12],[15,5],[10,0]],
+  // Indo-Australian / Eurasian (Himalaya)
+  [[30,70],[28,72],[25,68],[22,64],[20,62],[18,57],[15,52],[10,50]],
+  // Indo-Australian subduction (south Asia coast)
+  [[5,80],[0,90],[-5,95],[-8,100],[-10,105]],
+  // African / Arabian
+  [[30,35],[25,38],[20,40],[15,42],[12,44],[10,46]],
+];
+
+function initLeafletMap() {
+  // Dark tile options
+  const cartoDBDark = L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    { attribution: '© <a href="https://carto.com">CartoDB</a> © <a href="https://www.openstreetmap.org">OSM</a>', subdomains:'abcd', maxZoom:18 }
+  );
+  const esriOcean = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
+    { attribution: '© Esri', maxZoom:13, opacity: 0.5 }
+  );
+
+  leafletMap = L.map('leafletMap', {
+    center: [20, 10],
+    zoom: 2,
+    minZoom: 2,
+    maxZoom: 14,
+    layers: [cartoDBDark],
+    zoomControl: true,
+    attributionControl: true,
+  });
+
+  // Layer control
+  const baseMaps = {
+    '🌑 CartoDB Dark': cartoDBDark,
+  };
+  L.control.layers(baseMaps, {}, { position: 'topright', collapsed: true }).addTo(leafletMap);
+
+  // EQ marker layer
+  eqLayerGroup = L.layerGroup().addTo(leafletMap);
+  tsunamiLayerGroup = L.layerGroup().addTo(leafletMap);
+
+  // Ring of Fire
+  drawRingOfFire();
+
+  // Tectonic plates (off by default)
+  drawTectonicPlates();
+
+  setLog('Leaflet map initialized');
+}
+
+// ── Ring of Fire ──────────────────────────
+function drawRingOfFire() {
+  const style = {
+    color: '#ff4400',
+    weight: 2.5,
+    opacity: 0.75,
+    dashArray: '6,4',
+    lineCap: 'round',
+    lineJoin: 'round',
+  };
+  // glow layer (wider, dimmer)
+  const glowStyle = { color:'#ff6600', weight:6, opacity:0.18, lineCap:'round' };
+
+  const glowLines = RING_OF_FIRE_COORDS.map(seg =>
+    L.polyline(seg.map(([lat,lng]) => [lat,lng]), glowStyle)
+  );
+  const fireLines = RING_OF_FIRE_COORDS.map(seg =>
+    L.polyline(seg.map(([lat,lng]) => [lat,lng]), style)
+  );
+
+  ringOfFireLayer = L.layerGroup([...glowLines, ...fireLines]);
+  if (ringOfFireVisible) ringOfFireLayer.addTo(leafletMap);
+}
+
+function toggleRingOfFire() {
+  ringOfFireVisible = !ringOfFireVisible;
+  const btn = document.getElementById('btnRingOfFire');
+  if (ringOfFireVisible) {
+    ringOfFireLayer.addTo(leafletMap);
+    btn.classList.add('active');
+  } else {
+    leafletMap.removeLayer(ringOfFireLayer);
+    btn.classList.remove('active');
+  }
+}
+
+// ── Tectonic Plates ───────────────────────
+function drawTectonicPlates() {
+  const plateStyle = { color:'#00d4ff', weight:1, opacity:0.35, dashArray:'3,6' };
+  const plateLines = TECTONIC_SIMPLIFIED.map(seg =>
+    L.polyline(seg.map(([lat,lng]) => [lat,lng]), plateStyle)
+  );
+  tectonicLayer = L.layerGroup(plateLines);
+  // default OFF — ไม่ addTo(leafletMap) จนกว่าจะกดปุ่ม
+  platesVisible = false;
+  document.getElementById('btnPlates').classList.remove('active-blue');
+}
+
+function togglePlates() {
+  platesVisible = !platesVisible;
+  const btn = document.getElementById('btnPlates');
+  if (platesVisible) {
+    tectonicLayer.addTo(leafletMap);
+    btn.classList.add('active-blue');
+  } else {
+    leafletMap.removeLayer(tectonicLayer);
+    btn.classList.remove('active-blue');
+  }
+}
+
+// ── EQ Markers ────────────────────────────
+function magToRadius(mag) {
+  // M2.5=4, M4=6, M5=9, M6=13, M7=17, M8=21 — cap ที่ 22 ไม่ให้ dot บังแผนที่
+  return Math.max(4, Math.min(22, Math.pow(Math.max(0, mag - 1.5), 1.6) * 2.0));
+}
+
+function renderMap() {
+  if (!leafletMap) return;
+  eqLayerGroup.clearLayers();
+
+  const evs = filteredEvents.slice(0, 500);
+  evs.forEach(ev => {
+    if (!ev.lat || !ev.lon) return;
+    const color  = getMagColorHex(ev.mag);
+    const radius = magToRadius(ev.mag);
+
+    const circle = L.circleMarker([ev.lat, ev.lon], {
+      radius,
+      fillColor: color,
+      fillOpacity: ev.mag >= 5 ? 0.82 : 0.60,
+      color: color,
+      weight: ev.mag >= 6 ? 1.5 : 0.8,
+      opacity: 0.85,
+    });
+
+    // Popup — offset เพื่อให้ขึ้นเหนือ dot ไม่ทับ
+    const popupHtml = `
+      <div class="eq-popup">
+        <div class="eq-popup-mag" style="color:${color}">M${ev.mag.toFixed(1)}</div>
+        <div class="eq-popup-place">${ev.place}</div>
+        <div class="eq-popup-meta">
+          <span>🕐 ${formatTHA(ev.time)}</span>
+          <span>⬇ ${ev.depth ? ev.depth.toFixed(0)+' km' : 'N/A'} deep</span>
+          <span>📍 ${ev.lat.toFixed(2)}°, ${ev.lon.toFixed(2)}°</span>
+        </div>
+        <span class="eq-popup-src">${ev.source}</span>
+      </div>`;
+    circle.bindPopup(popupHtml, {
+      maxWidth: 240,
+      offset: L.point(0, -radius - 4),  // ขยับ popup ขึ้นเหนือ dot
+      autoPan: true,
+      autoPanPaddingTopLeft: L.point(20, 80),
+      autoPanPaddingBottomRight: L.point(20, 20),
+    });
+
+    // Click: open detail modal (ไม่ปิด popup อัตโนมัติ)
+    circle.on('click', () => { openModalByEvent(ev); });
+
+    // Pulse ring สำหรับ M6+ เท่านั้น (ลด rAF loops)
+    if (ev.mag >= 6.0) {
+      const pulseRadius = radius + 4;
+      const pulse = L.circleMarker([ev.lat, ev.lon], {
+        radius: pulseRadius,
+        fillColor: 'transparent',
+        color: color,
+        weight: 1.2,
+        opacity: 0.6,
+        fillOpacity: 0,
+      });
+      let animFrame;
+      const startTime = Date.now();
+      const animate = () => {
+        const t = ((Date.now() - startTime) % 2400) / 2400;
+        const r = pulseRadius + t * 14;
+        const op = 0.65 * (1 - t);
+        try { pulse.setRadius(r); pulse.setStyle({ opacity: op }); } catch(e) { return; }
+        animFrame = requestAnimationFrame(animate);
+      };
+      animFrame = requestAnimationFrame(animate);
+      eqLayerGroup.addLayer(pulse);
+    }
+
+    eqLayerGroup.addLayer(circle);
+  });
+}
+
+// ── Tsunami Markers on Leaflet ─────────────
+function renderTsunamiMapMarkers() {
+  if (!leafletMap) return;
+  tsunamiLayerGroup.clearLayers();
+
+  tsunamiAlerts.forEach(a => {
+    if (!a.lat || !a.lon) return;
+    const sc = sevColor(a.level);
+
+    // Pulsing circle marker
+    const marker = L.circleMarker([a.lat, a.lon], {
+      radius: 16,
+      fillColor: sc.hex,
+      fillOpacity: 0.25,
+      color: sc.hex,
+      weight: 2.5,
+      opacity: 0.9,
+      dashArray: '4,3',
+    });
+
+    const inner = L.circleMarker([a.lat, a.lon], {
+      radius: 6,
+      fillColor: sc.hex,
+      fillOpacity: 1,
+      color: '#fff',
+      weight: 1.5,
+      opacity: 1,
+    });
+
+    const popupHtml = `
+      <div class="eq-popup">
+        <div style="color:${sc.hex};font-weight:900;font-size:13px">🌊 TSUNAMI ${a.level}</div>
+        <div class="eq-popup-place">${a.title}</div>
+        <div class="eq-popup-meta">
+          <span>🕐 ${formatTHA(a.time)}</span>
+          <span>📡 ${a.source}</span>
+          ${a.regions ? `<span>📍 ${a.regions.slice(0,60)}</span>` : ''}
+        </div>
+        <span class="eq-popup-src" style="background:${sc.hex}22;border-color:${sc.hex};color:${sc.hex}">TSUNAMI ALERT</span>
+      </div>`;
+
+    marker.bindPopup(popupHtml, { maxWidth: 280 });
+    inner.bindPopup(popupHtml, { maxWidth: 280 });
+    inner.on('click', () => openTsunamiModal(a.id));
+
+    tsunamiLayerGroup.addLayer(marker);
+    tsunamiLayerGroup.addLayer(inner);
+  });
+}
+
+// ── Pan map to event ──────────────────────
+function panToEvent(ev) {
+  if (!leafletMap || !ev.lat || !ev.lon) return;
+  leafletMap.setView([ev.lat, ev.lon], Math.max(leafletMap.getZoom(), 5), { animate: true });
+}
+
+// lonlatToXY kept as no-op stub (tsunami banner references it via renderTsunamiMapMarkers which now uses Leaflet)
+function lonlatToXY(lon, lat) { return { x: 0, y: 0 }; }
+function drawWorldOutline() { /* replaced by Leaflet */ }
+
+// ══════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════
+function openModal(idx) {
+  openModalByEvent(filteredEvents[idx]);
+}
+function openModalByEvent(ev) {
+  if (!ev) return;
+  const color = getMagColor(ev.mag);
+  document.getElementById('modalMag').textContent = 'M' + ev.mag.toFixed(1);
+  document.getElementById('modalMag').style.color = color;
+  document.getElementById('modalPlace').textContent = ev.place;
+  document.getElementById('modalTime').textContent = formatTHA(ev.time).replace(',','');
+  document.getElementById('modalDepth').textContent = ev.depth ? ev.depth.toFixed(1) + ' km' : 'N/A';
+  document.getElementById('modalLat').textContent = ev.lat ? ev.lat.toFixed(3) + '°' : 'N/A';
+  document.getElementById('modalLon').textContent = ev.lon ? ev.lon.toFixed(3) + '°' : 'N/A';
+  document.getElementById('modalSource').textContent = ev.source;
+  document.getElementById('modalId').textContent = ev.id.replace('USGS_','').replace('EMSC_','').replace('GEOFON_','');
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(e) {
+  if (e.target.id === 'modalOverlay') closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+// ══════════════════════════════════════════
+// WEBSOCKET (EMSC)
+// ══════════════════════════════════════════
+function connectWS() {
+  const badge = document.getElementById('wsBadge');
+  const label = document.getElementById('wsLabel');
+  badge.className = 'ws-badge connecting';
+  label.textContent = 'WS Connecting…';
+  setLog('Connecting to EMSC WebSocket…');
+
+  try {
+    wsConn = new WebSocket('wss://www.seismicportal.eu/standing_order/websocket');
+
+    wsConn.onopen = () => {
+      badge.className = 'ws-badge connected';
+      label.textContent = 'EMSC WS Live';
+      setLog('EMSC WebSocket connected — receiving realtime data');
+    };
+
+    wsConn.onmessage = (msg) => {
+      try {
+        const data = JSON.parse(msg.data);
+        if (data.action === 'create' || data.action === 'update') {
+          const d = data.data;
+          if (!d || !d.properties) return;
+          const ev = {
+            id: 'EMSC_WS_' + (d.id || Date.now()),
+            mag: d.properties.mag,
+            place: d.properties.flynn_region || d.properties.place || 'Unknown',
+            time: new Date(d.properties.time).getTime(),
+            lat: d.geometry ? d.geometry.coordinates[1] : 0,
+            lon: d.geometry ? d.geometry.coordinates[0] : 0,
+            depth: d.properties.depth,
+            source: 'EMSC'
+          };
+          if (ev.mag < 2.5) return;
+          // Check if already exists
+          const isDup = allEvents.some(e =>
+            Math.abs(e.time - ev.time) < 120000 &&
+            Math.abs(e.lat - ev.lat) < 0.5 &&
+            Math.abs(e.lon - ev.lon) < 0.5
+          );
+          if (!isDup) {
+            allEvents.unshift(ev);
+            setLog(`[WS] New: M${ev.mag.toFixed(1)} ${ev.place}`);
+            if (ev.mag >= 5.0) {
+              showToast(`[WS LIVE] M${ev.mag.toFixed(1)} — ${ev.place}`, ev.mag >= 6 ? 'high' : 'med');
+            }
+            applyFilters();
+            updateStats();
+            showNewBanner(`[Live] M${ev.mag.toFixed(1)} ${ev.place}`);
+          }
+        }
+      } catch(e) { /* ignore parse errors */ }
+    };
+
+    wsConn.onerror = () => {
+      badge.className = 'ws-badge disconnected';
+      label.textContent = 'WS Error';
+      setLog('EMSC WebSocket error — using polling only');
+    };
+
+    wsConn.onclose = () => {
+      badge.className = 'ws-badge disconnected';
+      label.textContent = 'WS Offline';
+      setLog('EMSC WebSocket closed — reconnecting in 30s');
+      setTimeout(connectWS, 30000);
+    };
+  } catch(e) {
+    badge.className = 'ws-badge disconnected';
+    label.textContent = 'WS Unavailable';
+    setLog('WebSocket not available in this environment');
+  }
+}
+
+// ══════════════════════════════════════════
+// POLLING COUNTDOWN
+// ══════════════════════════════════════════
+function startPolling() {
+  clearInterval(pollInterval);
+  clearInterval(countdownInterval);
+  countdownVal = 60;
+
+  countdownInterval = setInterval(() => {
+    countdownVal--;
+    document.getElementById('countdown').textContent = countdownVal;
+    if (countdownVal <= 0) {
+      countdownVal = 60;
+    }
+  }, 1000);
+
+  pollInterval = setInterval(() => {
+    fetchAll();
+    countdownVal = 60;
+  }, 60000);
+}
+
+function manualRefresh() {
+  countdownVal = 60;
+  document.getElementById('countdown').textContent = 60;
+  fetchAll();
+}
+
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+function showToast(msg, level = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${level === 'high' ? 'alert-high' : level === 'med' ? 'alert-med' : ''}`;
+  const icon = level === 'high' ? '🔴' : level === 'med' ? '🟠' : 'ℹ️';
+  toast.innerHTML = `<span>${icon}</span><div><strong>New Earthquake Alert</strong>${msg}</div><span class="toast-dismiss" onclick="this.parentElement.remove()">✕</span>`;
+  container.appendChild(toast);
+  setTimeout(() => { if (toast.parentElement) toast.remove(); }, 8000);
+}
+
+// ══════════════════════════════════════════
+// NEW EVENT BANNER
+// ══════════════════════════════════════════
+let bannerTimer = null;
+function showNewBanner(msg) {
+  const b = document.getElementById('newBanner');
+  b.textContent = '🌊 ' + msg;
+  b.classList.add('show');
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => b.classList.remove('show'), 4000);
+}
+
+// ══════════════════════════════════════════
+// CHART DRAWER TOGGLE
+// ══════════════════════════════════════════
+let chartDrawerOpen = false;
+
+function toggleChartDrawer() {
+  chartDrawerOpen = !chartDrawerOpen;
+  const row    = document.getElementById('chartRow');
+  const arrow  = document.getElementById('chartDrawerArrow');
+  const mapDiv = document.getElementById('leafletMap');
+  const legend = document.getElementById('mapLegend');
+
+  if (chartDrawerOpen) {
+    row.classList.add('open');
+    arrow.classList.add('open');
+    mapDiv.classList.add('chart-open');
+    legend.classList.add('chart-open');
+    // รอ CSS transition 300ms เสร็จก่อน แล้ว destroy+recreate charts
+    // เพื่อให้ Chart.js วัด container size ได้ถูกต้อง
+    setTimeout(() => {
+      if (leafletMap) leafletMap.invalidateSize({ animate: false });
+      if (magChart)  { magChart.destroy();  magChart  = null; }
+      if (timeChart) { timeChart.destroy(); timeChart = null; }
+      updateCharts();  // สร้างใหม่หลัง container มีขนาดแล้ว
+    }, 320);
+  } else {
+    row.classList.remove('open');
+    arrow.classList.remove('open');
+    mapDiv.classList.remove('chart-open');
+    legend.classList.remove('chart-open');
+    setTimeout(() => {
+      if (leafletMap) leafletMap.invalidateSize({ animate: false });
+    }, 320);
+  }
+}
+
+// ══════════════════════════════════════════
+// LOG
+// ══════════════════════════════════════════
+function setLog(msg) {
+  document.getElementById('logTicker').textContent = msg;
+}
+
+// ══════════════════════════════════════════
+// TSUNAMI STATE
+// ══════════════════════════════════════════
+let tsunamiAlerts = [];          // active alerts array
+let tsunamiSectionOpen = true;
+let tsunamiPollInterval = null;
+let prevTsunamiIds = new Set();
+
+// Severity rank (higher = more severe)
+const SEV_RANK = { WARNING: 4, WATCH: 3, ADVISORY: 2, INFORMATION: 1, INFO: 1, EARTHQUAKE: 0 };
+function sevRank(s) { return SEV_RANK[(s||'').toUpperCase()] ?? 0; }
+
+function sevColor(s) {
+  const u = (s||'').toUpperCase();
+  if (u.includes('WARNING'))  return { badge:'badge-warning',  flag:'sev-warning',  hex:'#b91c1c', icon:'🔴' };
+  if (u.includes('WATCH'))    return { badge:'badge-watch',    flag:'sev-watch',    hex:'#c2410c', icon:'🟠' };
+  if (u.includes('ADVISORY')) return { badge:'badge-advisory', flag:'sev-advisory', hex:'#92400e', icon:'🟡' };
+  if (u.includes('EARTHQUAKE')) return { badge:'badge-eq',    flag:'sev-info',     hex:'#4c1d95', icon:'🟣' };
+  return                             { badge:'badge-info',     flag:'sev-info',     hex:'#1e3a5f', icon:'🔵' };
+}
+
+// ══════════════════════════════════════════
+// FETCH NOAA/PTWC — Pacific Tsunami Warning Center
+// RSS/Atom XML feed
+// ══════════════════════════════════════════
+async function fetchNOAA() {
+  // PTWC public Atom feed
+  const directUrl = 'https://www.tsunami.gov/events/xml/PAAQAtom.xml';
+  const proxyUrl  = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+  document.getElementById('dotNOAA').style.background = 'var(--text-muted)';
+  document.getElementById('dotNOAA').title = 'Fetching…';
+
+  let xmlText = null;
+  // Try direct first, fallback to proxy
+  for (const url of [directUrl, proxyUrl]) {
+    try {
+      const res = await fetchWithTimeout(url, 10000);
+      if (res.ok) { xmlText = await res.text(); break; }
+    } catch(e) { /* try next */ }
+  }
+
+  if (!xmlText) {
+    document.getElementById('dotNOAA').style.background = 'var(--red)';
+    document.getElementById('dotNOAA').title = 'Fetch failed';
+    return [];
+  }
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'application/xml');
+    const parseErr = doc.querySelector('parsererror');
+    if (parseErr) throw new Error('XML parse error');
+
+    const entries = doc.querySelectorAll('entry, item');
+    const results = [];
+
+    entries.forEach(entry => {
+      const title   = (entry.querySelector('title')?.textContent || '').trim();
+      const summary = (entry.querySelector('summary,description')?.textContent || '').trim();
+      const updated = entry.querySelector('updated,pubDate')?.textContent || '';
+      const link    = entry.querySelector('link')?.getAttribute('href')
+                   || entry.querySelector('link')?.textContent || '';
+      const id      = entry.querySelector('id,guid')?.textContent || link;
+
+      // Parse severity from title — NOAA format: "TSUNAMI WARNING …" / "TSUNAMI WATCH …" etc.
+      let level = 'INFORMATION';
+      const tU = title.toUpperCase();
+      if (tU.includes('WARNING'))     level = 'WARNING';
+      else if (tU.includes('WATCH'))  level = 'WATCH';
+      else if (tU.includes('ADVISORY')) level = 'ADVISORY';
+      else if (tU.includes('CANCEL') || tU.includes('ALL CLEAR')) level = 'CANCELLED';
+
+      if (level === 'CANCELLED') return; // skip cancelled
+
+      // Try to parse timestamp
+      let ts = Date.now();
+      try { if (updated) ts = new Date(updated).getTime(); } catch(e) {}
+
+      // Extract affected regions from summary (NOAA lists them)
+      const regionMatch = summary.match(/AREAS:\s*([^\n]+)/i)
+                       || summary.match(/REGIONS?:\s*([^\n]+)/i);
+      const regions = regionMatch ? regionMatch[1].trim() : '';
+
+      results.push({
+        id:      'NOAA_' + (id || title).replace(/\s+/g,'_').slice(0,40),
+        source:  'NOAA/PTWC',
+        level,
+        title:   title.replace(/^TSUNAMI\s*/i, '').slice(0, 100),
+        summary: summary.slice(0, 500),
+        regions,
+        time:    ts,
+        link
+      });
+    });
+
+    document.getElementById('dotNOAA').style.background = results.length ? 'var(--orange)' : 'var(--green)';
+    document.getElementById('dotNOAA').title = `OK — ${results.length} active`;
+    setLog(`NOAA/PTWC: ${results.length} tsunami bulletins`);
+    return results;
+  } catch(e) {
+    document.getElementById('dotNOAA').style.background = 'var(--red)';
+    document.getElementById('dotNOAA').title = `Parse error: ${e.message}`;
+    return [];
+  }
+}
+
+// ══════════════════════════════════════════
+// FETCH GDACS — Global Disaster Alert & Coord System
+// RSS feed — covers Indian Ocean + Atlantic (ครอบอันดามัน)
+// ══════════════════════════════════════════
+async function fetchGDACS() {
+  // GDACS RSS: tsunami events only (eventtype=TS)
+  const directUrl = 'https://www.gdacs.org/xml/rss_ts.xml';
+  const proxyUrls = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`,
+    `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
+  ];
+  document.getElementById('dotGDACS').style.background = 'var(--text-muted)';
+  document.getElementById('dotGDACS').title = 'Fetching…';
+
+  let xmlText = null;
+  for (const url of [directUrl, ...proxyUrls]) {
+    try {
+      const res = await fetchWithTimeout(url, 10000);
+      if (res.ok) {
+        const t = await res.text();
+        if (t.trim().startsWith('<')) { xmlText = t; break; }
+      }
+    } catch(e) { /* try next */ }
+  }
+
+  if (!xmlText) {
+    document.getElementById('dotGDACS').style.background = 'var(--red)';
+    document.getElementById('dotGDACS').title = 'Fetch failed';
+    return [];
+  }
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'application/xml');
+    if (doc.querySelector('parsererror')) throw new Error('XML parse error');
+
+    const items = doc.querySelectorAll('item');
+    const results = [];
+    const cutoff = Date.now() - 7 * 24 * 3600000; // last 7 days only
+
+    items.forEach(item => {
+      const title   = (item.querySelector('title')?.textContent || '').trim();
+      const desc    = (item.querySelector('description')?.textContent || '').trim();
+      const pubDate = item.querySelector('pubDate')?.textContent || '';
+      const link    = item.querySelector('link')?.textContent || '';
+      const guid    = item.querySelector('guid')?.textContent || link;
+
+      // GDACS uses gdacs:alertlevel tag
+      const alertLevel = item.querySelector('alertlevel,gdacs\\:alertlevel,[local-name()="alertlevel"]')
+                           ?.textContent?.trim()?.toUpperCase() || '';
+      // Also try eventtype
+      const eventType  = item.querySelector('eventtype,gdacs\\:eventtype,[local-name()="eventtype"]')
+                           ?.textContent?.trim()?.toUpperCase() || '';
+
+      // Only keep tsunami events
+      if (eventType && eventType !== 'TS' && !title.toUpperCase().includes('TSUNAMI')) return;
+
+      let level = 'INFORMATION';
+      if      (alertLevel === 'RED')    level = 'WARNING';
+      else if (alertLevel === 'ORANGE') level = 'WATCH';
+      else if (alertLevel === 'GREEN')  level = 'ADVISORY';
+
+      let ts = Date.now();
+      try { if (pubDate) ts = new Date(pubDate).getTime(); } catch(e) {}
+      if (ts < cutoff) return; // skip old
+
+      // lat/lon from georss or gdacs tags
+      let lat = null, lon = null;
+      const point = item.querySelector('point,[local-name()="point"]')?.textContent || '';
+      if (point) { const p = point.trim().split(' '); lat = parseFloat(p[0]); lon = parseFloat(p[1]); }
+
+      results.push({
+        id:      'GDACS_' + (guid || title).replace(/\s+/g,'_').slice(0,40),
+        source:  'GDACS',
+        level,
+        title:   title.slice(0, 100),
+        summary: desc.replace(/<[^>]+>/g,'').slice(0, 500),
+        regions: '',
+        time:    ts,
+        link,
+        lat, lon
+      });
+    });
+
+    document.getElementById('dotGDACS').style.background = results.length ? 'var(--orange)' : 'var(--green)';
+    document.getElementById('dotGDACS').title = `OK — ${results.length} tsunami events`;
+    setLog(`GDACS: ${results.length} tsunami events`);
+    return results;
+  } catch(e) {
+    document.getElementById('dotGDACS').style.background = 'var(--red)';
+    document.getElementById('dotGDACS').title = `Error: ${e.message}`;
+    return [];
+  }
+}
+
+// ══════════════════════════════════════════
+// CHECK USGS EVENTS WITH TSUNAMI FLAG
+// (ใช้ allEvents ที่มีอยู่แล้ว ไม่ fetch ใหม่)
+// ══════════════════════════════════════════
+function getUSGSTsunamiEvents() {
+  // USGS GeoJSON มี properties.tsunami = 1 สำหรับ events ที่ issued bulletin
+  // แต่เราไม่มี field นี้ใน current fetch
+  // ใช้ rule-based แทน: M6.5+ ใกล้ทะเล depth < 100km
+  return allEvents.filter(ev => {
+    if (!ev.source === 'USGS') return false;
+    if (ev.mag < 6.5) return false;
+    if (ev.depth && ev.depth > 100) return false;
+    // ตรวจว่าอยู่ใกล้ทะเล (lat/lon ไม่ได้อยู่กลางทวีป)
+    return true;
+  }).map(ev => ({
+    id:      'USGSTS_' + ev.id,
+    source:  'USGS (Tsunami Potential)',
+    level:   ev.mag >= 7.5 ? 'WATCH' : 'ADVISORY',
+    title:   `M${ev.mag.toFixed(1)} — Tsunami Potential — ${ev.place}`,
+    summary: `แผ่นดินไหว M${ev.mag.toFixed(1)} ความลึก ${ev.depth ? ev.depth.toFixed(0) : '?'} km อาจก่อให้เกิดคลื่นสึนามิในพื้นที่ใกล้เคียง`,
+    regions: ev.place,
+    time:    ev.time,
+    link:    ev.url || `https://earthquake.usgs.gov/earthquakes/eventpage/${ev.id.replace('USGS_','')}`,
+    lat:     ev.lat,
+    lon:     ev.lon,
+    fromEq:  true
+  }));
+}
+
+// ══════════════════════════════════════════
+// FETCH ALL TSUNAMI SOURCES
+// ══════════════════════════════════════════
+async function fetchTsunami() {
+  setLog('Checking tsunami warnings (NOAA/PTWC + GDACS)…');
+  const [noaaResults, gdacsResults] = await Promise.allSettled([fetchNOAA(), fetchGDACS()]);
+
+  const noaa  = noaaResults.status  === 'fulfilled' ? noaaResults.value  : [];
+  const gdacs = gdacsResults.status === 'fulfilled' ? gdacsResults.value : [];
+  const usgsTs = getUSGSTsunamiEvents();
+
+  // Merge, deduplicate by id
+  const seen = new Set();
+  const merged = [...noaa, ...gdacs, ...usgsTs].filter(a => {
+    if (seen.has(a.id)) return false;
+    seen.add(a.id); return true;
+  });
+
+  // Sort: severity desc, then time desc
+  merged.sort((a,b) => {
+    const sr = sevRank(b.level) - sevRank(a.level);
+    return sr !== 0 ? sr : b.time - a.time;
+  });
+
+  // Detect new alerts
+  const newAlerts = merged.filter(a => !prevTsunamiIds.has(a.id) && sevRank(a.level) >= 2);
+  if (prevTsunamiIds.size > 0 && newAlerts.length > 0) {
+    newAlerts.forEach(a => {
+      const sc = sevColor(a.level);
+      showTsunamiToast(a);
+    });
+  }
+  prevTsunamiIds = new Set(merged.map(a => a.id));
+
+  tsunamiAlerts = merged;
+  renderTsunamiBanner();
+  renderTsunamiSidebar();
+  renderTsunamiMapMarkers();
+}
+
+// ══════════════════════════════════════════
+// RENDER TSUNAMI BANNER (top of page)
+// ══════════════════════════════════════════
+function renderTsunamiBanner() {
+  const banner = document.getElementById('tsunamiBanner');
+  const active = tsunamiAlerts.filter(a => sevRank(a.level) >= 1);
+
+  if (active.length === 0) {
+    // All-clear state
+    const noaaOk  = document.getElementById('dotNOAA').style.background.includes('green') ? 'ok' : 'err';
+    const gdacsOk = document.getElementById('dotGDACS').style.background.includes('green') ? 'ok' : 'err';
+    banner.className = 'tsunami-banner clear';
+    banner.innerHTML = `
+      <div class="tsunami-clear-inner">
+        <div class="tsunami-clear-dot"></div>
+        <div class="tsunami-clear-text">
+          <strong>ไม่มีคำเตือนสึนามิที่ Active</strong>
+          — ข้อมูล ณ ${new Date().toLocaleTimeString('th-TH',{timeZone:'Asia/Bangkok',hour12:false})} THA
+        </div>
+        <div class="tsunami-src-badges">
+          <span class="tsrc-badge tsrc-${noaaOk}">NOAA/PTWC</span>
+          <span class="tsrc-badge tsrc-${gdacsOk}">GDACS</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // Active warnings — show banner
+  const topSev  = active[0];
+  const sc      = sevColor(topSev.level);
+  banner.className = 'tsunami-banner active';
+
+  const cardsHtml = active.slice(0, 8).map(a => {
+    const asc = sevColor(a.level);
+    return `
+      <div class="tsunami-alert-card" onclick="openTsunamiModal('${a.id.replace(/'/g,"\\'")}')">
+        <div class="tac-header">
+          <span class="tac-badge ${asc.badge}">${a.level}</span>
+          <span class="tac-source">${a.source}</span>
+        </div>
+        <div class="tac-title">${a.title}</div>
+        <div class="tac-meta">
+          <span>${timeAgo(a.time)}</span>
+          ${a.regions ? `<span>· ${a.regions.slice(0,30)}</span>` : ''}
+        </div>
+        <div class="tac-hint">คลิกดูรายละเอียด →</div>
+      </div>`;
+  }).join('');
+
+  banner.innerHTML = `
+    <div class="tsunami-banner-inner">
+      <div class="tsunami-severity-flag ${sc.flag}">
+        <span class="flag-icon">${sc.icon}</span>
+        <span>TSUNAMI</span>
+        <span>${topSev.level}</span>
+      </div>
+      <div class="tsunami-alerts-scroll">${cardsHtml}</div>
+      <div class="tsunami-banner-status">
+        <div class="tsn-status-label">Active Alerts</div>
+        <div class="tsn-status-count">${active.length}</div>
+        <div class="tsn-status-label" style="margin-top:4px">Updated</div>
+        <div class="tsn-status-time">${new Date().toLocaleTimeString('th-TH',{timeZone:'Asia/Bangkok',hour12:false})}</div>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// RENDER TSUNAMI SIDEBAR SECTION
+// ══════════════════════════════════════════
+function renderTsunamiSidebar() {
+  const items    = document.getElementById('tsunamiItems');
+  const badge    = document.getElementById('tsunamiSectionBadge');
+  const noData   = document.getElementById('tsunamiNoData');
+  const actionable = tsunamiAlerts.filter(a => sevRank(a.level) >= 1);
+
+  if (actionable.length > 0) {
+    badge.style.display = 'inline';
+    badge.textContent   = actionable.length;
+    badge.style.background = sevRank(actionable[0].level) >= 3 ? '#b91c1c' : '#c2410c';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  if (tsunamiAlerts.length === 0) {
+    items.innerHTML = `<div class="tsunami-no-data"><span style="font-size:20px;display:block;margin-bottom:6px">✅</span>ไม่มีคำเตือนสึนามิ<br><span style="font-size:9px;margin-top:4px;display:block">NOAA/PTWC + GDACS</span></div>`;
+    return;
+  }
+
+  items.innerHTML = tsunamiAlerts.slice(0, 10).map(a => {
+    const sc = sevColor(a.level);
+    return `
+      <div class="tsunami-item" onclick="openTsunamiModal('${a.id.replace(/'/g,"\\'")}')">
+        <div class="tsunami-item-hdr">
+          <span class="tac-badge ${sc.badge}" style="font-size:8px;padding:1px 5px">${a.level}</span>
+          <span style="font-size:9px;color:var(--text-muted);font-weight:600">${a.source}</span>
+          <span style="margin-left:auto;font-size:9px;color:var(--text-muted)">${timeAgo(a.time)}</span>
+        </div>
+        <div class="tsunami-item-title">${sc.icon} ${a.title.slice(0,60)}${a.title.length>60?'…':''}</div>
+        <div class="tsunami-item-meta">${a.regions ? a.regions.slice(0,50) : 'ดูรายละเอียด →'}</div>
+      </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// TSUNAMI MODAL
+// ══════════════════════════════════════════
+function openTsunamiModal(id) {
+  const a = tsunamiAlerts.find(x => x.id === id);
+  if (!a) return;
+  const sc = sevColor(a.level);
+  document.getElementById('tmLevel').textContent  = `🌊 TSUNAMI ${a.level}`;
+  document.getElementById('tmLevel').style.color  = sc.hex;
+  document.getElementById('tmTitle').textContent  = a.title;
+  document.getElementById('tmSource').textContent = a.source;
+  document.getElementById('tmTime').textContent   = formatTHA(a.time);
+  document.getElementById('tmRegions').textContent = a.regions || 'ไม่ระบุพื้นที่';
+  document.getElementById('tmDesc').textContent   = a.summary || 'ไม่มีรายละเอียดเพิ่มเติม';
+  document.getElementById('tmLink').href          = a.link || '#';
+  document.getElementById('tsunamiModalOverlay').classList.add('open');
+}
+function closeTsunamiModal(e) { if (e.target.id === 'tsunamiModalOverlay') closeTsunamiModalDirect(); }
+function closeTsunamiModalDirect() { document.getElementById('tsunamiModalOverlay').classList.remove('open'); }
+
+// ══════════════════════════════════════════
+// TSUNAMI TOAST (แจ้งเตือนพิเศษ)
+// ══════════════════════════════════════════
+function showTsunamiToast(a) {
+  const sc = sevColor(a.level);
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast alert-high';
+  toast.style.borderLeftColor = sc.hex;
+  toast.style.borderLeftWidth = '4px';
+  toast.innerHTML = `
+    <span style="font-size:18px">${sc.icon}</span>
+    <div>
+      <strong style="color:${sc.hex};font-size:13px">🌊 TSUNAMI ${a.level}</strong>
+      <span style="display:block;margin:2px 0;font-size:11px">${a.title.slice(0,80)}</span>
+      <span style="font-size:10px;color:var(--text-muted)">${a.source} · ${timeAgo(a.time)}</span>
+    </div>
+    <span class="toast-dismiss" onclick="this.parentElement.remove()">✕</span>`;
+  container.appendChild(toast);
+  setTimeout(() => { if (toast.parentElement) toast.remove(); }, 15000);
+}
+
+// ══════════════════════════════════════════
+// TSUNAMI SECTION TOGGLE
+// ══════════════════════════════════════════
+function toggleTsunamiSection() {
+  tsunamiSectionOpen = !tsunamiSectionOpen;
+  document.getElementById('tsunamiItems').style.display = tsunamiSectionOpen ? 'block' : 'none';
+  document.getElementById('tsunamiToggleIcon').textContent = tsunamiSectionOpen ? '▼' : '▶';
+}
+
+// ══════════════════════════════════════════
+// START TSUNAMI POLLING (every 2 minutes)
+// ══════════════════════════════════════════
+function startTsunamiPolling() {
+  clearInterval(tsunamiPollInterval);
+  tsunamiPollInterval = setInterval(fetchTsunami, 120000); // 2 min
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+async function init() {
+  initLeafletMap();
+  await Promise.all([fetchAll(), fetchTsunami()]);
+  connectWS();
+  startPolling();
+  startTsunamiPolling();
+}
+
+init();
+</script>
+</body>
+</html>
