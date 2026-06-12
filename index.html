@@ -142,6 +142,11 @@
     gap: 10px;
     padding: 14px 20px;
     border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 56px;          /* header height */
+    z-index: 80;
+    background: var(--bg);
+    backdrop-filter: blur(8px);
   }
 
   /* Thailand card special style */
@@ -181,6 +186,10 @@
     padding: 12px 20px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: calc(56px + 96px);   /* header + stats row height */
+    z-index: 79;
+    backdrop-filter: blur(8px);
   }
 
   .filter-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
@@ -221,7 +230,7 @@
     grid-template-columns: 1fr 340px;
     grid-template-rows: auto 1fr;
     gap: 0;
-    height: calc(100vh - 175px);
+    height: calc(100vh - 56px - 96px - 48px); /* vh - header - stats - filter */
   }
 
   /* ── MAP AREA ── */
@@ -424,6 +433,15 @@
   }
   .table-header-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
   .event-count { font-size: 11px; color: var(--accent); font-family: var(--font-mono); background: var(--surface2); padding: 2px 8px; border-radius: 10px; }
+
+  .csv-export-btn {
+    padding: 3px 9px; border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    font-size: 10px; cursor: pointer; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .csv-export-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.06); }
 
   /* Thailand zone Leaflet tooltip */
   .thailand-tooltip {
@@ -890,19 +908,24 @@
     .tsunami-clear-text { font-size: 10px; }
     .tsrc-badge { display: none; }
 
-    /* Stats — 4 คอลัมน์บน mobile (7 col เยอะไป) */
-    .stats-row { grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px 10px; }
+    /* Stats — 4 คอลัมน์บน mobile, sticky */
+    .stats-row {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px; padding: 8px 10px;
+      top: 50px; /* mobile header height */
+    }
     .stat-card { padding: 8px 10px; }
     .stat-value { font-size: 18px; }
     .stat-label { font-size: 9px; }
     .stat-sub { display: none; }
 
-    /* Filter bar — horizontal scroll */
+    /* Filter bar — horizontal scroll + sticky */
     .filter-bar {
       padding: 8px 10px; gap: 6px;
       overflow-x: auto; flex-wrap: nowrap;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
+      top: calc(50px + 76px); /* mobile header + stats */
     }
     .filter-bar::-webkit-scrollbar { display: none; }
     .filter-sep { display: none; }
@@ -1169,7 +1192,12 @@
 
     <div class="table-header">
       <span class="table-header-title">Recent Events</span>
-      <span class="event-count" id="eventCount">0 events</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="event-count" id="eventCount">0 events</span>
+        <button class="csv-export-btn" onclick="exportCSV()" title="Export filtered events as CSV">
+          ⬇ CSV
+        </button>
+      </div>
     </div>
     <div class="event-list" id="eventList">
       <div style="padding:30px; text-align:center; color:var(--text-muted); font-size:12px;">
@@ -2461,6 +2489,57 @@ function toggleChartDrawer() {
 }
 
 // ══════════════════════════════════════════
+// EXPORT CSV
+// ══════════════════════════════════════════
+function exportCSV() {
+  if (!filteredEvents.length) {
+    setLog('⚠ ไม่มีข้อมูลสำหรับ export');
+    return;
+  }
+
+  // Header row
+  const headers = ['Time_THA','Magnitude','Place','Depth_km','Latitude','Longitude','Source','ID'];
+
+  // Data rows
+  const rows = filteredEvents.map(ev => {
+    const timeTHA = new Date(ev.time).toLocaleString('th-TH', {
+      timeZone: 'Asia/Bangkok', hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    }).replace(',', '');
+    // escape commas in place name
+    const place = `"${(ev.place || '').replace(/"/g, '""')}"`;
+    return [
+      timeTHA,
+      ev.mag !== null ? ev.mag.toFixed(1) : '',
+      place,
+      ev.depth !== null && ev.depth !== undefined ? ev.depth.toFixed(1) : '',
+      ev.lat !== null ? ev.lat.toFixed(4) : '',
+      ev.lon !== null ? ev.lon.toFixed(4) : '',
+      ev.source || '',
+      ev.id ? ev.id.replace(/^(USGS_|EMSC_|GEOFON_)/,'') : ''
+    ].join(',');
+  });
+
+  const csv  = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM สำหรับ Excel ภาษาไทย
+  const url  = URL.createObjectURL(blob);
+
+  // filename: seismowatch_YYYYMMDD_HHMM.csv
+  const now  = new Date();
+  const pad  = n => String(n).padStart(2,'0');
+  const name = `seismowatch_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.csv`;
+
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  setLog(`✓ Exported ${filteredEvents.length} events → ${name}`);
+}
+
+// ══════════════════════════════════════════
 // LOG
 // ══════════════════════════════════════════
 function setLog(msg) {
@@ -3138,18 +3217,21 @@ let tidePollInterval  = null;
 // IOC รายงาน residual (actual - predicted) หน่วย cm
 // NOAA รายงาน water_level หน่วย m
 function tideStatus(residualCm) {
-  if (residualCm === null) return { label:'No Data', color:'#64748b', pct: 0,  cls:'tg-nodata'  };
+  // Guard: null, undefined, NaN ทั้งหมด → No Data
+  if (residualCm === null || residualCm === undefined || isNaN(residualCm)) {
+    return { label:'No Data', color:'#64748b', pct:0, cls:'tg-nodata' };
+  }
   const abs = Math.abs(residualCm);
-  if (abs >= 100) return { label:'⚠ ALERT',    color:'#ef4444', pct:100, cls:'tg-alert'   };
-  if (abs >=  50) return { label:'▲ Elevated', color:'#eab308', pct: Math.min(100, abs),    cls:'tg-elevated' };
-  return               { label:'✓ Normal',    color:'#22c55e', pct: Math.min(100, abs*2), cls:'tg-normal'  };
+  if (abs >= 100) return { label:'⚠ ALERT',    color:'#ef4444', pct:100,                cls:'tg-alert'    };
+  if (abs >=  50) return { label:'▲ Elevated', color:'#eab308', pct:Math.min(100,abs),  cls:'tg-elevated' };
+  return               { label:'✓ Normal',    color:'#22c55e', pct:Math.min(100,abs*2), cls:'tg-normal'   };
 }
 
 // ── IOC fetch ────────────────────────────
 // IOC VLIZ API: https://www.ioc-sealevelmonitoring.org/service.php
 async function fetchIOCStation(gauge) {
   const endDt   = new Date();
-  const startDt = new Date(endDt - 6 * 3600000); // 6h ล่าสุด
+  const startDt = new Date(endDt - 6 * 3600000);
   const fmt     = d => d.toISOString().replace('T',' ').slice(0,19);
   const url = `https://www.ioc-sealevelmonitoring.org/service.php?query=sealevel`
             + `&code=${gauge.id}&timestart=${fmt(startDt)}&timestop=${fmt(endDt)}&output=json`;
@@ -3157,50 +3239,60 @@ async function fetchIOCStation(gauge) {
     `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     `https://corsproxy.io/?${encodeURIComponent(url)}`,
   ];
-  for (const u of [url, ...proxyUrls]) {
-    try {
-      const res = await fetchWithTimeout(u, 8000);
-      if (!res.ok) continue;
-      const text = await res.text();
-      if (!text || text.trim().startsWith('<')) continue;
-      const data = JSON.parse(text);
-      if (!Array.isArray(data) || data.length === 0) break;
-      // data = [{stime, slevel, flag},...] เรียงจากเก่าไปใหม่
-      const latest = data[data.length - 1];
-      const slevel = parseFloat(latest.slevel); // หน่วย m
-      const ts     = new Date(latest.stime + 'Z');
-      const ageH   = (Date.now() - ts.getTime()) / 3600000;
-      if (ageH > 3) return { residualCm: null, raw: null, updatedAt: ts, src: 'IOC' };
-      // IOC ส่ง residual มาแล้วใน slevel (m) → แปลงเป็น cm
-      return { residualCm: slevel * 100, raw: slevel, updatedAt: ts, src: 'IOC' };
-    } catch(e) { /* try next */ }
+
+  // ลด timeout เป็น 4s ต่อ URL — ไม่รอนาน
+  const tryFetch = async (u) => {
+    const res = await fetchWithTimeout(u, 4000);
+    if (!res.ok) throw new Error('not ok');
+    const text = await res.text();
+    if (!text || text.trim().startsWith('<')) throw new Error('bad response');
+    const data = JSON.parse(text);
+    if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
+    const latest = data[data.length - 1];
+    const slevel = parseFloat(latest.slevel);
+    if (isNaN(slevel)) throw new Error('NaN slevel');
+    const ts = new Date(latest.stime + 'Z');
+    if (isNaN(ts.getTime())) throw new Error('bad date');
+    const ageH = (Date.now() - ts.getTime()) / 3600000;
+    if (ageH > 3) return { residualCm: null, raw: null, updatedAt: ts, src: 'IOC' };
+    return { residualCm: slevel * 100, raw: slevel, updatedAt: ts, src: 'IOC' };
+  };
+
+  // ลอง direct + proxy พร้อมกัน — ใครตอบก่อนได้ก่อน
+  try {
+    const result = await Promise.any([url, ...proxyUrls].map(u =>
+      tryFetch(u).catch(e => Promise.reject(e))
+    ));
+    return result;
+  } catch(e) {
+    return { residualCm: null, raw: null, updatedAt: null, src: 'IOC' };
   }
-  return { residualCm: null, raw: null, updatedAt: null, src: 'IOC' };
 }
 
 // ── UHSLC fetch ───────────────────────────
 async function fetchUHSLCStation(gauge) {
-  // UHSLC Fast Delivery API
-  const url = `https://uhslc.soest.hawaii.edu/api/fd/json?stnid=${gauge.id.replace(/\D/g,'')}&limit=10`;
+  const url      = `https://uhslc.soest.hawaii.edu/api/fd/json?stnid=${gauge.id.replace(/\D/g,'')}&limit=10`;
   const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-  for (const u of [url, proxyUrl]) {
-    try {
-      const res = await fetchWithTimeout(u, 8000);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (!data?.data?.length) break;
-      const latest = data.data[data.data.length - 1];
-      // UHSLC: [unix_ms, sea_level_mm]
-      const ts    = new Date(latest[0]);
-      const rawM  = latest[1] / 1000; // mm → m
-      const ageH  = (Date.now() - ts.getTime()) / 3600000;
-      if (ageH > 3) return { residualCm: null, raw: null, updatedAt: ts, src: 'UHSLC' };
-      // ใช้ค่า deviation จาก 0 เป็น proxy ของ residual
-      const residualCm = (rawM - 0) * 100;
-      return { residualCm, raw: rawM, updatedAt: ts, src: 'UHSLC' };
-    } catch(e) { /* try next */ }
+
+  const tryFetch = async (u) => {
+    const res  = await fetchWithTimeout(u, 4000);
+    if (!res.ok) throw new Error('not ok');
+    const data = await res.json();
+    if (!data?.data?.length) throw new Error('empty');
+    const latest = data.data[data.data.length - 1];
+    const ts     = new Date(latest[0]);
+    const rawM   = latest[1] / 1000;
+    if (isNaN(rawM) || isNaN(ts.getTime())) throw new Error('NaN');
+    const ageH   = (Date.now() - ts.getTime()) / 3600000;
+    if (ageH > 3) return { residualCm: null, raw: null, updatedAt: ts, src: 'UHSLC' };
+    return { residualCm: rawM * 100, raw: rawM, updatedAt: ts, src: 'UHSLC' };
+  };
+
+  try {
+    return await Promise.any([url, proxyUrl].map(u => tryFetch(u)));
+  } catch(e) {
+    return { residualCm: null, raw: null, updatedAt: null, src: 'UHSLC' };
   }
-  return { residualCm: null, raw: null, updatedAt: null, src: 'UHSLC' };
 }
 
 // ── NOAA CO-OPS fetch ─────────────────────
@@ -3268,34 +3360,52 @@ function makeTideIcon(residualCm) {
 
 // ── Popup HTML ────────────────────────────
 function tidePopupHtml(g) {
-  const st      = tideStatus(g.residualCm !== undefined ? g.residualCm : null);
-  const rawStr  = (g.raw !== null && g.raw !== undefined)
-    ? `${g.raw.toFixed(3)} m` : 'N/A';
-  const resStr  = (g.residualCm !== null && g.residualCm !== undefined)
-    ? `${g.residualCm > 0 ? '+' : ''}${g.residualCm.toFixed(1)} cm` : 'N/A';
-  const updStr  = g.updatedAt
+  // Guard: ตรวจ null / undefined / NaN ทุกค่า
+  const hasData   = g.residualCm !== null && g.residualCm !== undefined && !isNaN(g.residualCm);
+  const hasRaw    = g.raw        !== null && g.raw        !== undefined && !isNaN(g.raw);
+  const hasUpdate = g.updatedAt  instanceof Date && !isNaN(g.updatedAt.getTime());
+
+  const st      = tideStatus(hasData ? g.residualCm : null);
+  const rawStr  = hasRaw  ? (g.raw.toFixed(3) + ' m') : '— กำลังโหลด…';
+  const sign    = hasData ? (g.residualCm >= 0 ? '+' : '') : '';
+  const resStr  = hasData ? (sign + g.residualCm.toFixed(1) + ' cm') : '— กำลังโหลด…';
+  const updStr  = hasUpdate
     ? g.updatedAt.toLocaleString('th-TH', { timeZone:'Asia/Bangkok', hour12:false,
-        year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
-    : 'N/A';
-  const pct = Math.min(100, Math.abs(g.residualCm || 0));
+        year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit' })
+    : 'รอรับข้อมูล…';
+
+  const pct     = hasData ? Math.min(100, Math.abs(g.residualCm)) : 0;
+
+  // loading state — แสดง spinner ถ้ายังไม่มีข้อมูล
+  const statusBlock = hasData
+    ? `<div class="tg-level-row">
+         <span class="tg-level-val" style="color:${st.color}">${resStr}</span>
+         <span style="font-size:11px;font-weight:700;color:${st.color}">${st.label}</span>
+       </div>
+       <div class="tg-bar-wrap">
+         <div class="tg-bar-fill" style="width:${pct}%;background:${st.color}"></div>
+       </div>`
+    : `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;color:var(--text-muted);font-size:11px">
+         <div style="width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);
+                     border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></div>
+         กำลังดึงข้อมูล — อัปเดตอัตโนมัติ
+       </div>
+       <div class="tg-bar-wrap"><div class="tg-bar-fill" style="width:0%;background:#334155"></div></div>`;
+
+  const pendingBadge = !hasData ? ' | <span style="color:var(--yellow)">⏳ Pending</span>' : '';
 
   return `
     <div class="tg-popup">
       <div class="tg-popup-name">🌊 ${g.name}</div>
-      <div class="tg-level-row">
-        <span class="tg-level-val" style="color:${st.color}">${resStr}</span>
-        <span style="font-size:11px;font-weight:700;color:${st.color}">${st.label}</span>
-      </div>
-      <div class="tg-bar-wrap">
-        <div class="tg-bar-fill" style="width:${pct}%;background:${st.color}"></div>
-      </div>
+      ${statusBlock}
       <div class="tg-meta">
         <div>📊 Sea level: <strong>${rawStr}</strong></div>
-        <div>🏳️ Deviation from mean: <strong style="color:${st.color}">${resStr}</strong></div>
+        <div>📐 Deviation: <strong style="color:${st.color}">${resStr}</strong></div>
         <div>🌍 Country: ${g.country} | Station: ${g.id}</div>
       </div>
       <div class="tg-sources">
-        🕐 ${updStr} THA &nbsp;|&nbsp; Source: ${g.src || g.source || 'IOC'}
+        🕐 ${updStr} THA | Source: ${g.src || g.source || 'IOC'}${pendingBadge}
       </div>
     </div>`;
 }
@@ -3383,16 +3493,16 @@ function updateTideMarkers(results) {
 async function fetchAllTideGauges() {
   if (!tideGaugeVisible) return;
   setLog('Fetching tide gauge data (IOC + UHSLC + NOAA)…');
-  // แบ่ง batch ไม่ให้ทำพร้อมกันเยอะเกิน
+  // batch 8 พร้อมกัน (เพิ่มจาก 5) delay 100ms (ลดจาก 300ms)
   const results = [];
-  const batchSize = 5;
+  const batchSize = 8;
   for (let i = 0; i < TIDE_GAUGES.length; i += batchSize) {
     const batch = TIDE_GAUGES.slice(i, i + batchSize);
     const res   = await Promise.allSettled(batch.map(g => fetchTideGaugeStation(g)));
     res.forEach((r, j) => {
       results.push(r.status === 'fulfilled' ? r.value : { ...batch[j], residualCm: null, raw: null, updatedAt: null });
     });
-    if (i + batchSize < TIDE_GAUGES.length) await new Promise(r => setTimeout(r, 300));
+    if (i + batchSize < TIDE_GAUGES.length) await new Promise(r => setTimeout(r, 100));
   }
   updateTideMarkers(results);
 }
