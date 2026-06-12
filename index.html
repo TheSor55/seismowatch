@@ -134,11 +134,25 @@
   /* ── STATS ROW ── */
   .stats-row {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     gap: 10px;
     padding: 14px 20px;
     border-bottom: 1px solid var(--border);
   }
+
+  /* Thailand card special style */
+  .thailand-card {
+    border-color: rgba(74,222,128,0.3) !important;
+    background: linear-gradient(135deg, var(--surface), rgba(74,222,128,0.05)) !important;
+    transition: all 0.15s;
+  }
+  .thailand-card:hover { border-color: #4ade80 !important; background: rgba(74,222,128,0.08) !important; }
+  .thailand-card.active-zone {
+    border-color: #4ade80 !important;
+    background: rgba(74,222,128,0.12) !important;
+    box-shadow: 0 0 12px rgba(74,222,128,0.2);
+  }
+  .thailand-card.active-zone::before { background: #4ade80 !important; }
 
   .stat-card {
     background: var(--surface);
@@ -277,19 +291,39 @@
   /* Map legend — ติดมุมล่างซ้ายของ leafletMap เสมอ */
   .map-legend {
     position: absolute; bottom: 10px; left: 10px; z-index: 1000;
-    background: rgba(10,14,26,0.88);
+    background: rgba(10,14,26,0.92);
     border: 1px solid var(--border);
-    border-radius: 8px; padding: 8px 10px;
+    border-radius: 8px;
     font-size: 10px; backdrop-filter: blur(4px);
-    pointer-events: none;
-    /* ไม่ใช้ transition bottom เพื่อหลีกเลี่ยงการชนกับ chart drawer */
+    pointer-events: auto;   /* แก้: ต้องคลิกได้ */
+    min-width: 130px;
+    max-width: 160px;
+    overflow: hidden;
   }
-  /* เมื่อ chart drawer เปิด ให้ legend ยกขึ้นพ้นกราฟ */
+  /* เมื่อ chart drawer เปิด ให้ legend ยกขึ้น */
   .map-legend.chart-open { bottom: 212px; }
-  .map-legend-title { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
-  .legend-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .legend-line { width: 20px; height: 2px; flex-shrink: 0; }
+
+  /* Header bar ของ legend — คลิกได้ */
+  .map-legend-title {
+    font-size: 9px; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 6px 8px; margin: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer;
+    border-bottom: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+    user-select: none;
+  }
+  .map-legend-title:hover { background: rgba(255,255,255,0.05); }
+  .map-legend-title.open  { border-bottom-color: var(--border); }
+
+  /* body ของ legend */
+  #legendBody { padding: 6px 8px 7px; }
+
+  .legend-row { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; font-size: 9px; color: #94a3b8; }
+  .legend-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .legend-sq   { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; } /* tide gauge */
+  .legend-line { width: 16px; height: 2px; flex-shrink: 0; }
 
   /* Ring of Fire toggle button */
   .map-controls-overlay {
@@ -386,6 +420,40 @@
   }
   .table-header-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
   .event-count { font-size: 11px; color: var(--accent); font-family: var(--font-mono); background: var(--surface2); padding: 2px 8px; border-radius: 10px; }
+
+  /* Thailand zone Leaflet tooltip */
+  .thailand-tooltip {
+    background: rgba(10,14,26,0.92) !important;
+    border: 1px solid #4ade80 !important;
+    color: #4ade80 !important;
+    font-size: 10px !important;
+    border-radius: 6px !important;
+    box-shadow: 0 2px 12px rgba(74,222,128,0.2) !important;
+  }
+
+  /* DART Buoy popup */
+  .buoy-popup { padding: 10px 12px; min-width: 170px; }
+  .buoy-popup-name { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .buoy-status-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .buoy-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .buoy-status-label { font-size: 11px; font-weight: 700; }
+  .buoy-meta { font-size: 10px; color: var(--text-muted); line-height: 1.6; }
+  .buoy-updated { font-size: 9px; color: var(--text-muted); margin-top: 4px; border-top: 1px solid var(--border); padding-top: 4px; }
+  /* status colors */
+  .bs-normal   { background: #22c55e; }
+  .bs-event    { background: #f97316; box-shadow: 0 0 6px #f97316; }
+  .bs-nodata   { background: #ef4444; }
+  .bs-loading  { background: #64748b; }
+
+  /* Tide Gauge popup */
+  .tg-popup { padding: 10px 12px; min-width: 190px; }
+  .tg-popup-name { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .tg-bar-wrap { background: var(--surface2); border-radius: 4px; height: 6px; margin: 6px 0; overflow: hidden; }
+  .tg-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .tg-level-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+  .tg-level-val { font-size: 16px; font-weight: 900; font-family: var(--font-mono); }
+  .tg-meta { font-size: 10px; color: var(--text-muted); line-height: 1.7; }
+  .tg-sources { font-size: 9px; color: #334155; margin-top: 4px; border-top: 1px solid var(--border); padding-top: 4px; }
 
   .event-list {
     flex: 1;
@@ -791,8 +859,8 @@
     .tsunami-clear-text { font-size: 10px; }
     .tsrc-badge { display: none; }
 
-    /* Stats — 3 คอลัมน์ */
-    .stats-row { grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px 10px; }
+    /* Stats — 4 คอลัมน์บน mobile (7 col เยอะไป) */
+    .stats-row { grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px 10px; }
     .stat-card { padding: 8px 10px; }
     .stat-value { font-size: 18px; }
     .stat-label { font-size: 9px; }
@@ -926,6 +994,12 @@
     <div class="stat-value" id="statMax">—</div>
     <div class="stat-sub" id="statMaxLoc">—</div>
   </div>
+  <!-- Thailand Zone stat card -->
+  <div class="stat-card thailand-card" style="--accent-color: #4ade80; cursor:pointer" onclick="toggleThailandFilter()" title="คลิกเพื่อกรองเฉพาะพื้นที่ใกล้ไทย">
+    <div class="stat-label">🇹🇭 Near Thailand</div>
+    <div class="stat-value" id="statThailand">—</div>
+    <div class="stat-sub" id="statThailandSub">Andaman + Gulf</div>
+  </div>
 </div>
 
 <!-- FILTER BAR -->
@@ -950,6 +1024,10 @@
     <option value="72">3 Days</option>
     <option value="168">7 Days</option>
   </select>
+  <div class="filter-sep"></div>
+  <button class="filter-btn" id="btnThailandZone" onclick="toggleThailandFilter()" style="border-color:rgba(74,222,128,0.4);color:#4ade80">
+    🇹🇭 Near Thailand
+  </button>
   <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()">
     <span id="refreshIcon">↻</span> Refresh Now
   </button>
@@ -969,20 +1047,33 @@
 
     <!-- Map Legend -->
     <div class="map-legend" id="mapLegend">
-      <div class="map-legend-title" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleLegend()">
-        <span>Magnitude</span>
-        <span id="legendToggleIcon" style="font-size:8px;margin-left:6px;color:var(--text-muted)">▲</span>
+      <div class="map-legend-title" id="legendTitle" onclick="toggleLegend()">
+        <span>⊞ Legend</span>
+        <span id="legendToggleIcon">▲</span>
       </div>
       <div id="legendBody">
-        <div class="legend-row"><div class="legend-dot" style="background:#22c55e;width:7px;height:7px"></div><span style="color:#94a3b8">&lt; 4.0 Minor</span></div>
-        <div class="legend-row"><div class="legend-dot" style="background:#eab308;width:10px;height:10px"></div><span style="color:#94a3b8">4.0–4.9 Light</span></div>
-        <div class="legend-row"><div class="legend-dot" style="background:#f97316;width:13px;height:13px"></div><span style="color:#94a3b8">5.0–5.9 Moderate</span></div>
-        <div class="legend-row"><div class="legend-dot" style="background:#ef4444;width:16px;height:16px"></div><span style="color:#94a3b8">6.0–6.9 Strong</span></div>
-        <div class="legend-row"><div class="legend-dot" style="background:#fca5a5;width:20px;height:20px"></div><span style="color:#94a3b8">7.0+ Major</span></div>
-        <div style="margin-top:7px; padding-top:6px; border-top:1px solid #1e2d45;">
-          <div class="legend-row"><div class="legend-line" style="background:linear-gradient(90deg,#ff4400,#ff8800);height:2px;border-radius:1px"></div><span style="color:#ff8855">Ring of Fire</span></div>
-          <div class="legend-row"><div class="legend-line" style="background:#00d4ff;height:1px;border-radius:1px;opacity:0.6"></div><span style="color:#64748b">Tectonic Plates</span></div>
-        </div>
+        <!-- Magnitude -->
+        <div style="font-size:8px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Magnitude</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#22c55e"></div>&lt; 4.0 Minor</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#eab308;width:10px;height:10px"></div>4.0–4.9 Light</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#f97316;width:11px;height:11px"></div>5.0–5.9 Moderate</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#ef4444;width:13px;height:13px"></div>6.0–6.9 Strong</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#fca5a5;width:14px;height:14px"></div>7.0+ Major</div>
+        <!-- Overlays -->
+        <div style="font-size:8px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin:5px 0 3px">Overlays</div>
+        <div class="legend-row"><div class="legend-line" style="background:linear-gradient(90deg,#ff4400,#ff8800);height:2px;border-radius:1px"></div>Ring of Fire</div>
+        <div class="legend-row"><div class="legend-line" style="background:#00d4ff;opacity:0.6"></div>Tectonic Plates</div>
+        <div class="legend-row"><div class="legend-line" style="background:#4ade80;height:2px;border-radius:1px;opacity:0.7"></div>Thailand Zone</div>
+        <!-- DART -->
+        <div style="font-size:8px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin:5px 0 3px">DART Buoys</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#22c55e;border:1px solid #fff"></div>Normal</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#f97316;border:1px solid #fff"></div>Event Mode</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#ef4444;border:1px solid #fff"></div>No Data</div>
+        <!-- Tide Gauge -->
+        <div style="font-size:8px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin:5px 0 3px">Tide Gauges</div>
+        <div class="legend-row"><div class="legend-sq" style="background:#22c55e;border:1px solid #fff"></div>Normal</div>
+        <div class="legend-row"><div class="legend-sq" style="background:#eab308;border:1px solid #fff"></div>Elevated (&gt;50cm)</div>
+        <div class="legend-row"><div class="legend-sq" style="background:#ef4444;border:1px solid #fff"></div>Alert (&gt;100cm)</div>
       </div>
     </div>
 
@@ -993,6 +1084,15 @@
       </button>
       <button class="map-overlay-btn" id="btnPlates" onclick="togglePlates()">
         🗺 Tectonic Plates
+      </button>
+      <button class="map-overlay-btn" id="btnThaiZone" onclick="toggleThailandZoneLayer()">
+        🇹🇭 Thailand Zone
+      </button>
+      <button class="map-overlay-btn" id="btnDartBuoy" onclick="toggleDartBuoys()">
+        🔵 DART Buoys
+      </button>
+      <button class="map-overlay-btn" id="btnTideGauge" onclick="toggleTideGauges()">
+        🌊 Tide Gauges
       </button>
     </div>
 
@@ -1513,6 +1613,7 @@ function applyFilters() {
     if (e.mag < magFilter) return false;
     if (sourceFilter !== 'all' && e.source !== sourceFilter) return false;
     if (e.time < cutoff) return false;
+    if (thailandFilterActive && !isNearThailand(e)) return false;
     return true;
   });
   renderList();
@@ -1571,7 +1672,135 @@ function renderList() {
 }
 
 // ══════════════════════════════════════════
-// UPDATE STATS
+// THAILAND ZONE — พิกัดและ logic ทั้งหมด
+// ══════════════════════════════════════════
+
+// จุดศูนย์กลางกรุงเทพฯ
+const BANGKOK = { lat: 13.75, lon: 100.52 };
+
+// รัศมี near Thailand (km)
+const THAILAND_RADIUS_KM = 2000;
+
+// Haversine distance (km) ระหว่างสองจุด
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function isNearThailand(ev) {
+  if (!ev.lat || !ev.lon) return false;
+  return haversineKm(BANGKOK.lat, BANGKOK.lon, ev.lat, ev.lon) <= THAILAND_RADIUS_KM;
+}
+
+// ── Thailand Zone Layer ────────────────────
+let thailandZoneLayer = null;
+let thailandZoneVisible = false;
+let thailandFilterActive = false;
+
+// Polygon ครอบอันดามัน + อ่าวไทย + Indian Ocean ใกล้ไทย
+// วาดเป็นวงกลม approximate จากกรุงเทพฯ radius 2000km
+function drawThailandZone() {
+  // Andaman Sea polygon (เส้นสีเขียวชัด)
+  const andamanPoly = L.polygon([
+    [22, 92], [22, 100], [18, 100], [15, 98],
+    [10, 98], [5, 100], [0, 98], [-2, 95],
+    [2, 88], [8, 85], [14, 88], [18, 92], [22, 92]
+  ], {
+    color: '#4ade80', weight: 1.5, opacity: 0.7,
+    fillColor: '#4ade80', fillOpacity: 0.04,
+    dashArray: '6,4'
+  }).bindTooltip('Andaman Sea / Indian Ocean Zone', { className: 'thailand-tooltip' });
+
+  // Gulf of Thailand polygon
+  const gulfPoly = L.polygon([
+    [14, 100], [14, 105], [11, 105], [9, 103],
+    [7, 103], [5, 102], [5, 100], [8, 99],
+    [11, 99], [14, 100]
+  ], {
+    color: '#4ade80', weight: 1.5, opacity: 0.7,
+    fillColor: '#4ade80', fillOpacity: 0.04,
+    dashArray: '6,4'
+  }).bindTooltip('Gulf of Thailand Zone', { className: 'thailand-tooltip' });
+
+  // วงกลม radius 2000km จากกรุงเทพฯ (approximate bounding zone)
+  const radiusCircle = L.circle([BANGKOK.lat, BANGKOK.lon], {
+    radius: THAILAND_RADIUS_KM * 1000,
+    color: '#4ade80', weight: 1, opacity: 0.25,
+    fillColor: '#4ade80', fillOpacity: 0.02,
+    dashArray: '3,8'
+  }).bindTooltip('2,000 km radius from Bangkok', { className: 'thailand-tooltip' });
+
+  // Bangkok marker
+  const bkkMarker = L.circleMarker([BANGKOK.lat, BANGKOK.lon], {
+    radius: 5, fillColor: '#4ade80', fillOpacity: 1,
+    color: '#fff', weight: 1.5, opacity: 1
+  }).bindTooltip('🇹🇭 Bangkok', { permanent: false });
+
+  thailandZoneLayer = L.layerGroup([radiusCircle, andamanPoly, gulfPoly, bkkMarker]);
+}
+
+function toggleThailandZoneLayer() {
+  thailandZoneVisible = !thailandZoneVisible;
+  const btn = document.getElementById('btnThaiZone');
+  if (thailandZoneVisible) {
+    if (!thailandZoneLayer) drawThailandZone();
+    thailandZoneLayer.addTo(leafletMap);
+    leafletMap.setView([10, 95], 4, { animate: true }); // zoom ไปโซนไทย
+    btn.classList.add('active-blue');
+  } else {
+    if (thailandZoneLayer) leafletMap.removeLayer(thailandZoneLayer);
+    btn.classList.remove('active-blue');
+  }
+}
+
+// ── Thailand Filter ────────────────────────
+function toggleThailandFilter() {
+  thailandFilterActive = !thailandFilterActive;
+  const btn  = document.getElementById('btnThailandZone');
+  const card = document.querySelector('.thailand-card');
+
+  if (thailandFilterActive) {
+    btn.classList.add('active');
+    btn.style.background = 'rgba(74,222,128,0.2)';
+    btn.style.borderColor = '#4ade80';
+    btn.style.color = '#4ade80';
+    card.classList.add('active-zone');
+    // เปิด zone layer ด้วยถ้ายังปิดอยู่
+    if (!thailandZoneVisible) toggleThailandZoneLayer();
+    setLog('🇹🇭 Filtering: Near Thailand (2,000km radius)');
+  } else {
+    btn.classList.remove('active');
+    btn.style.background = '';
+    btn.style.borderColor = 'rgba(74,222,128,0.4)';
+    btn.style.color = '#4ade80';
+    card.classList.remove('active-zone');
+    setLog('Filter cleared — showing all regions');
+  }
+  applyFilters();
+}
+
+// ── Update Thailand stats ──────────────────
+function updateThailandStats() {
+  const cutoff   = Date.now() - timeFilterHours * 3600000;
+  const nearThai = allEvents.filter(e => e.time >= cutoff && isNearThailand(e));
+  const el       = document.getElementById('statThailand');
+  const sub      = document.getElementById('statThailandSub');
+  el.textContent = nearThai.length;
+  // แสดง event ใหญ่สุดในโซนด้วย
+  if (nearThai.length > 0) {
+    const maxThai = nearThai.reduce((a, b) => b.mag > a.mag ? b : a, { mag: 0 });
+    sub.textContent = maxThai.mag > 0 ? `Max M${maxThai.mag.toFixed(1)}` : 'No events';
+  } else {
+    sub.textContent = 'No events nearby';
+  }
+}
+
+// ══════════════════════════════════════════
+// UPDATE STATS (override เดิม)
 // ══════════════════════════════════════════
 function updateStats() {
   const evs = allEvents;
@@ -1585,6 +1814,7 @@ function updateStats() {
     document.getElementById('statMax').textContent = 'M' + maxEv.mag.toFixed(1);
     document.getElementById('statMaxLoc').textContent = (maxEv.place || '').slice(0, 22);
   }
+  updateThailandStats();
 }
 
 // ══════════════════════════════════════════
@@ -2125,26 +2355,41 @@ function showNewBanner(msg) {
 }
 
 // ══════════════════════════════════════════
-// LEGEND TOGGLE — ย่อ/ขยาย บน mobile
+// LEGEND TOGGLE — ย่อ/ขยาย คลิกได้ทุกขนาดจอ
 // ══════════════════════════════════════════
 let legendOpen = true;
 
 function toggleLegend() {
   legendOpen = !legendOpen;
-  const body = document.getElementById('legendBody');
-  const icon = document.getElementById('legendToggleIcon');
-  body.style.display = legendOpen ? 'block' : 'none';
-  icon.textContent   = legendOpen ? '▲' : '▼';
+  const body  = document.getElementById('legendBody');
+  const icon  = document.getElementById('legendToggleIcon');
+  const title = document.getElementById('legendTitle');
+  if (legendOpen) {
+    body.style.display  = 'block';
+    icon.textContent    = '▲';
+    title.classList.add('open');
+  } else {
+    body.style.display  = 'none';
+    icon.textContent    = '▼';
+    title.classList.remove('open');
+  }
 }
 
 // Auto-collapse บน mobile เมื่อโหลดหน้า
 function initLegendState() {
   if (window.innerWidth <= 768) {
     legendOpen = false;
-    const body = document.getElementById('legendBody');
-    const icon = document.getElementById('legendToggleIcon');
-    if (body) body.style.display = 'none';
-    if (icon) icon.textContent = '▼';
+    const body  = document.getElementById('legendBody');
+    const icon  = document.getElementById('legendToggleIcon');
+    const title = document.getElementById('legendTitle');
+    if (body)  body.style.display = 'none';
+    if (icon)  icon.textContent   = '▼';
+    if (title) title.classList.remove('open');
+  } else {
+    // desktop เปิดตั้งแต่แรก
+    legendOpen = true;
+    const title = document.getElementById('legendTitle');
+    if (title) title.classList.add('open');
   }
 }
 
@@ -2621,6 +2866,485 @@ function toggleTsunamiSection() {
 function startTsunamiPolling() {
   clearInterval(tsunamiPollInterval);
   tsunamiPollInterval = setInterval(fetchTsunami, 120000); // 2 min
+}
+
+// ══════════════════════════════════════════
+// DART BUOY SYSTEM
+// ══════════════════════════════════════════
+
+// ทุ่น DART ที่ relevant กับไทย (Indian Ocean + Andaman + Bay of Bengal)
+// พิกัดจาก NOAA DART station list จริง
+const DART_BUOYS = [
+  // Indian Ocean / Andaman — ใกล้ไทยที่สุด
+  { id: '23401', name: 'Andaman Sea', lat: 11.5,  lon:  90.5, region: 'Bay of Bengal' },
+  { id: '23402', name: 'Bay of Bengal N', lat: 17.0,  lon:  89.0, region: 'Bay of Bengal' },
+  { id: '23403', name: 'Bay of Bengal S', lat:  8.0,  lon:  90.0, region: 'Indian Ocean NE' },
+  { id: '55023', name: 'Indian Ocean NW', lat: -10.0, lon:  80.0, region: 'Indian Ocean' },
+  { id: '55024', name: 'Indian Ocean C',  lat: -15.0, lon:  70.0, region: 'Indian Ocean' },
+  { id: '55025', name: 'Indian Ocean SW', lat: -25.0, lon:  60.0, region: 'Indian Ocean' },
+  { id: '56001', name: 'Java Trench',     lat: -10.0, lon: 105.0, region: 'Indian Ocean NE' },
+  { id: '56003', name: 'Sunda Trench',    lat:  -8.0, lon:  96.0, region: 'Indian Ocean NE' },
+  // Pacific ที่มีผลต่อ Indian Ocean (via Sumatra subduction)
+  { id: '52401', name: 'Central Pacific', lat:   0.0, lon: 140.0, region: 'West Pacific' },
+  { id: '52402', name: 'West Pacific N',  lat:  15.0, lon: 145.0, region: 'West Pacific' },
+];
+
+// State
+let dartBuoyLayer    = null;
+let dartBuoyVisible  = false;
+let dartBuoyMarkers  = {}; // id → { marker, data }
+let dartPollInterval = null;
+
+// Status colors & labels
+function buoyStatusStyle(status) {
+  switch(status) {
+    case 'NORMAL':  return { color:'#22c55e', label:'Normal',   dotClass:'bs-normal',  icon:'🟢' };
+    case 'EVENT':   return { color:'#f97316', label:'Event Mode',dotClass:'bs-event',   icon:'🟠' };
+    case 'NODATA':  return { color:'#ef4444', label:'No Data',   dotClass:'bs-nodata',  icon:'🔴' };
+    default:        return { color:'#64748b', label:'Loading…',  dotClass:'bs-loading', icon:'⚫' };
+  }
+}
+
+// ── Fetch buoy status จาก NOAA ────────────
+async function fetchBuoyStatus(buoy) {
+  // NOAA NDBC real-time data: latest observation
+  const directUrl = `https://www.ndbc.noaa.gov/data/realtime2/${buoy.id}.dart`;
+  const proxyUrls = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`,
+    `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
+  ];
+
+  for (const url of [directUrl, ...proxyUrls]) {
+    try {
+      const res = await fetchWithTimeout(url, 8000);
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (!text || text.trim().startsWith('<')) continue;
+
+      // Parse DART data format: #YY MM DD hh mm ss T HEIGHT
+      const lines = text.split('\n').filter(l => !l.startsWith('#') && l.trim());
+      if (lines.length === 0) return { ...buoy, status: 'NODATA', height: null, updatedAt: null };
+
+      const latest = lines[0].trim().split(/\s+/);
+      // latest[6] = T (tsunami flag: 1=event, 0=normal), latest[7] = height (m)
+      const tsunamiFlag = parseInt(latest[6] || '0');
+      const height      = parseFloat(latest[7] || '0');
+      const yr  = parseInt(latest[0]) + (parseInt(latest[0]) < 50 ? 2000 : 1900);
+      const ts  = new Date(`${yr}-${latest[1]}-${latest[2]}T${latest[3]}:${latest[4]}:${latest[5]}Z`);
+
+      // ถ้า data เก่ากว่า 2 ชั่วโมง ถือว่า no data
+      const ageHours = (Date.now() - ts.getTime()) / 3600000;
+      if (ageHours > 2) return { ...buoy, status: 'NODATA', height: null, updatedAt: ts };
+
+      const status = tsunamiFlag === 1 ? 'EVENT' : 'NORMAL';
+      return { ...buoy, status, height, updatedAt: ts };
+    } catch(e) { /* try next */ }
+  }
+  // ถ้าทุก URL fail → แสดง position เฉยๆ ไม่ crash
+  return { ...buoy, status: 'NODATA', height: null, updatedAt: null };
+}
+
+// ── สร้าง custom icon สำหรับ buoy ─────────
+function makeBuoyIcon(status) {
+  const st  = buoyStatusStyle(status);
+  // SVG icon รูปทุ่นลอยน้ำ
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="30" viewBox="0 0 24 30">
+    <!-- เสา -->
+    <rect x="11" y="2" width="2" height="10" fill="${st.color}" opacity="0.9"/>
+    <!-- ธง -->
+    <polygon points="13,2 21,5 13,8" fill="${st.color}" opacity="0.9"/>
+    <!-- ทุ่น (วงกลม) -->
+    <circle cx="12" cy="20" r="8" fill="${st.color}" opacity="0.85" stroke="white" stroke-width="1.5"/>
+    <!-- pulse ring ถ้า event mode -->
+    ${status === 'EVENT' ? `<circle cx="12" cy="20" r="10" fill="none" stroke="${st.color}" stroke-width="1" opacity="0.5"/>` : ''}
+    <!-- ตัวอักษร D ตรงกลาง -->
+    <text x="12" y="24" text-anchor="middle" font-size="9" font-weight="bold" fill="white" font-family="Arial">D</text>
+  </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize:   [24, 30],
+    iconAnchor: [12, 28],
+    popupAnchor:[0, -28],
+  });
+}
+
+// ── สร้าง popup content ──────────────────
+function buoyPopupHtml(b) {
+  const st = buoyStatusStyle(b.status || 'UNKNOWN');
+  const updStr = b.updatedAt
+    ? b.updatedAt.toLocaleString('th-TH', { timeZone:'Asia/Bangkok', hour12:false,
+        year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+    : 'N/A';
+  const heightStr = (b.height !== null && b.height !== undefined)
+    ? `${b.height.toFixed(3)} m` : 'N/A';
+
+  return `
+    <div class="buoy-popup">
+      <div class="buoy-popup-name">🔵 DART ${b.id} — ${b.name}</div>
+      <div class="buoy-status-row">
+        <div class="buoy-status-dot ${st.dotClass}"></div>
+        <span class="buoy-status-label" style="color:${st.color}">${st.icon} ${st.label}</span>
+      </div>
+      <div class="buoy-meta">
+        <div>📍 ${b.lat.toFixed(1)}°, ${b.lon.toFixed(1)}°</div>
+        <div>🌊 Sea level: <strong style="color:${st.color}">${heightStr}</strong></div>
+        <div>🗺 Region: ${b.region}</div>
+      </div>
+      <div class="buoy-updated">
+        🕐 Updated: ${updStr} THA<br>
+        <span style="color:#334155;font-size:9px">Source: NOAA NDBC DART</span>
+      </div>
+    </div>`;
+}
+
+// ── Init buoy markers (position เท่านั้น ก่อน fetch status) ──
+function initDartBuoys() {
+  dartBuoyLayer = L.layerGroup();
+  DART_BUOYS.forEach(b => {
+    const marker = L.marker([b.lat, b.lon], {
+      icon: makeBuoyIcon('UNKNOWN'),
+      zIndexOffset: 500,
+    });
+    marker.bindPopup(buoyPopupHtml({ ...b, status:'UNKNOWN' }), {
+      maxWidth: 220, offset: L.point(0, -28)
+    });
+    dartBuoyMarkers[b.id] = { marker, data: { ...b, status:'UNKNOWN' } };
+    dartBuoyLayer.addLayer(marker);
+  });
+}
+
+// ── Update marker icons + popups หลัง fetch ──
+function updateBuoyMarkers(results) {
+  results.forEach(b => {
+    const entry = dartBuoyMarkers[b.id];
+    if (!entry) return;
+    entry.data = b;
+    entry.marker.setIcon(makeBuoyIcon(b.status));
+    entry.marker.getPopup()?.setContent(buoyPopupHtml(b));
+    // ถ้า event mode → แจ้งเตือน toast
+    if (b.status === 'EVENT') {
+      showToast(`🟠 DART Buoy ${b.id} (${b.name}) — Event Mode detected!`, 'high');
+    }
+  });
+}
+
+// ── Fetch status ทั้งหมด ─────────────────
+async function fetchAllBuoyStatus() {
+  if (!dartBuoyVisible) return; // ไม่ fetch ถ้า layer ปิด
+  setLog('Fetching DART buoy status…');
+  const results = await Promise.all(DART_BUOYS.map(b => fetchBuoyStatus(b)));
+  updateBuoyMarkers(results);
+
+  // update status bar
+  const ok  = results.filter(b => b.status === 'NORMAL').length;
+  const ev  = results.filter(b => b.status === 'EVENT').length;
+  const nd  = results.filter(b => b.status === 'NODATA').length;
+  setLog(`DART Buoys — 🟢 Normal:${ok} 🟠 Event:${ev} 🔴 NoData:${nd}`);
+}
+
+// ── Toggle buoy layer ─────────────────────
+function toggleDartBuoys() {
+  dartBuoyVisible = !dartBuoyVisible;
+  const btn = document.getElementById('btnDartBuoy');
+
+  if (dartBuoyVisible) {
+    if (!dartBuoyLayer) initDartBuoys();
+    dartBuoyLayer.addTo(leafletMap);
+    btn.classList.add('active-blue');
+    // zoom ไปโซน Indian Ocean
+    leafletMap.setView([5, 90], 4, { animate: true });
+    // fetch status ทันที
+    fetchAllBuoyStatus();
+    // poll ทุก 15 นาที
+    clearInterval(dartPollInterval);
+    dartPollInterval = setInterval(fetchAllBuoyStatus, 15 * 60 * 1000);
+  } else {
+    if (dartBuoyLayer) leafletMap.removeLayer(dartBuoyLayer);
+    btn.classList.remove('active-blue');
+    clearInterval(dartPollInterval);
+  }
+}
+
+// ══════════════════════════════════════════
+// TIDE GAUGE SYSTEM
+// IOC Sea Level Monitoring + UHSLC + NOAA
+// ══════════════════════════════════════════
+
+// สถานี Tide Gauge ในภูมิภาคไทย + อ่าวไทย + อินเดีย
+// รวบรวมจาก IOC GLOSS, UHSLC, NOAA CO-OPS
+const TIDE_GAUGES = [
+  // ── อ่าวไทย ─────────────────────────────
+  { id:'satahip',    name:'สัตหีบ (Sattahip)',       lat:12.67, lon:100.90, country:'TH', src:'IOC' },
+  { id:'prachub',    name:'ประจวบฯ (Prachuap)',       lat:11.82, lon:99.80,  country:'TH', src:'IOC' },
+  { id:'songkhla',   name:'สงขลา (Songkhla)',         lat: 7.20, lon:100.60, country:'TH', src:'IOC' },
+  { id:'pattani',    name:'ปัตตานี (Pattani)',        lat: 6.87, lon:101.27, country:'TH', src:'IOC' },
+  { id:'koh_samui',  name:'เกาะสมุย (Ko Samui)',      lat: 9.54, lon:100.06, country:'TH', src:'IOC' },
+  // ── อันดามัน ────────────────────────────
+  { id:'phuket',     name:'ภูเก็ต (Phuket)',          lat: 7.80, lon:98.40,  country:'TH', src:'IOC' },
+  { id:'ranong',     name:'ระนอง (Ranong)',            lat: 9.97, lon:98.63,  country:'TH', src:'IOC' },
+  { id:'ko_tapao',   name:'เกาะตะเภา (Ko Tapao)',     lat: 7.78, lon:98.43,  country:'TH', src:'IOC' },
+  // ── เพื่อนบ้านใกล้เคียง ─────────────────
+  { id:'penang',     name:'Penang, Malaysia',         lat: 5.41, lon:100.37, country:'MY', src:'IOC' },
+  { id:'langkawi',   name:'Langkawi, Malaysia',       lat: 6.43, lon:99.77,  country:'MY', src:'IOC' },
+  { id:'sabang',     name:'Sabang, Indonesia',        lat: 5.87, lon:95.32,  country:'ID', src:'IOC' },
+  { id:'sibolga',    name:'Sibolga, Indonesia',       lat: 1.74, lon:98.78,  country:'ID', src:'IOC' },
+  { id:'colombo',    name:'Colombo, Sri Lanka',       lat: 6.94, lon:79.86,  country:'LK', src:'IOC' },
+  { id:'chennai',    name:'Chennai, India',           lat:13.10, lon:80.30,  country:'IN', src:'UHSLC' },
+  { id:'vishaka',    name:'Visakhapatnam, India',     lat:17.69, lon:83.28,  country:'IN', src:'UHSLC' },
+  // ── NOAA stations ภูมิภาค ───────────────
+  { id:'1631428',    name:'Legaspi, Philippines',     lat:13.15, lon:123.75, country:'PH', src:'NOAA' },
+  { id:'1612340',    name:'Midway Island (Pacific)',  lat:28.21, lon:-177.36,country:'US', src:'NOAA' },
+];
+
+// State
+let tideGaugeLayer    = null;
+let tideGaugeVisible  = false;
+let tideGaugeMarkers  = {};
+let tidePollInterval  = null;
+
+// ── Status logic ──────────────────────────
+// IOC รายงาน residual (actual - predicted) หน่วย cm
+// NOAA รายงาน water_level หน่วย m
+function tideStatus(residualCm) {
+  if (residualCm === null) return { label:'No Data', color:'#64748b', pct: 0,  cls:'tg-nodata'  };
+  const abs = Math.abs(residualCm);
+  if (abs >= 100) return { label:'⚠ ALERT',    color:'#ef4444', pct:100, cls:'tg-alert'   };
+  if (abs >=  50) return { label:'▲ Elevated', color:'#eab308', pct: Math.min(100, abs),    cls:'tg-elevated' };
+  return               { label:'✓ Normal',    color:'#22c55e', pct: Math.min(100, abs*2), cls:'tg-normal'  };
+}
+
+// ── IOC fetch ────────────────────────────
+// IOC VLIZ API: https://www.ioc-sealevelmonitoring.org/service.php
+async function fetchIOCStation(gauge) {
+  const endDt   = new Date();
+  const startDt = new Date(endDt - 6 * 3600000); // 6h ล่าสุด
+  const fmt     = d => d.toISOString().replace('T',' ').slice(0,19);
+  const url = `https://www.ioc-sealevelmonitoring.org/service.php?query=sealevel`
+            + `&code=${gauge.id}&timestart=${fmt(startDt)}&timestop=${fmt(endDt)}&output=json`;
+  const proxyUrls = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  ];
+  for (const u of [url, ...proxyUrls]) {
+    try {
+      const res = await fetchWithTimeout(u, 8000);
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (!text || text.trim().startsWith('<')) continue;
+      const data = JSON.parse(text);
+      if (!Array.isArray(data) || data.length === 0) break;
+      // data = [{stime, slevel, flag},...] เรียงจากเก่าไปใหม่
+      const latest = data[data.length - 1];
+      const slevel = parseFloat(latest.slevel); // หน่วย m
+      const ts     = new Date(latest.stime + 'Z');
+      const ageH   = (Date.now() - ts.getTime()) / 3600000;
+      if (ageH > 3) return { residualCm: null, raw: null, updatedAt: ts, src: 'IOC' };
+      // IOC ส่ง residual มาแล้วใน slevel (m) → แปลงเป็น cm
+      return { residualCm: slevel * 100, raw: slevel, updatedAt: ts, src: 'IOC' };
+    } catch(e) { /* try next */ }
+  }
+  return { residualCm: null, raw: null, updatedAt: null, src: 'IOC' };
+}
+
+// ── UHSLC fetch ───────────────────────────
+async function fetchUHSLCStation(gauge) {
+  // UHSLC Fast Delivery API
+  const url = `https://uhslc.soest.hawaii.edu/api/fd/json?stnid=${gauge.id.replace(/\D/g,'')}&limit=10`;
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  for (const u of [url, proxyUrl]) {
+    try {
+      const res = await fetchWithTimeout(u, 8000);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!data?.data?.length) break;
+      const latest = data.data[data.data.length - 1];
+      // UHSLC: [unix_ms, sea_level_mm]
+      const ts    = new Date(latest[0]);
+      const rawM  = latest[1] / 1000; // mm → m
+      const ageH  = (Date.now() - ts.getTime()) / 3600000;
+      if (ageH > 3) return { residualCm: null, raw: null, updatedAt: ts, src: 'UHSLC' };
+      // ใช้ค่า deviation จาก 0 เป็น proxy ของ residual
+      const residualCm = (rawM - 0) * 100;
+      return { residualCm, raw: rawM, updatedAt: ts, src: 'UHSLC' };
+    } catch(e) { /* try next */ }
+  }
+  return { residualCm: null, raw: null, updatedAt: null, src: 'UHSLC' };
+}
+
+// ── NOAA CO-OPS fetch ─────────────────────
+async function fetchNOAAStation(gauge) {
+  const now      = new Date();
+  const begin    = new Date(now - 6 * 3600000);
+  const fmtNoaa  = d => `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')} ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
+  const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter`
+            + `?station=${gauge.id}&product=water_level&datum=MLLW`
+            + `&begin_date=${encodeURIComponent(fmtNoaa(begin))}`
+            + `&end_date=${encodeURIComponent(fmtNoaa(now))}`
+            + `&units=metric&time_zone=gmt&application=seismowatch&format=json`;
+  try {
+    const res = await fetchWithTimeout(url, 10000);
+    if (!res.ok) return { residualCm: null, raw: null, updatedAt: null, src: 'NOAA' };
+    const data = await res.json();
+    if (data.error || !data.data?.length)
+      return { residualCm: null, raw: null, updatedAt: null, src: 'NOAA' };
+    const obs = data.data;
+    const latest = obs[obs.length - 1];
+    const pred   = obs.reduce((a, b) => a, obs[0]); // simple baseline
+    const rawM   = parseFloat(latest.v);
+    const ts     = new Date(latest.t.replace(' ','T') + 'Z');
+    // คำนวณ residual จาก mean ของ 6h
+    const mean   = obs.reduce((s, o) => s + parseFloat(o.v), 0) / obs.length;
+    const residualCm = (rawM - mean) * 100;
+    return { residualCm, raw: rawM, updatedAt: ts, src: 'NOAA' };
+  } catch(e) {
+    return { residualCm: null, raw: null, updatedAt: null, src: 'NOAA' };
+  }
+}
+
+// ── Route fetch ตาม source ───────────────
+async function fetchTideGaugeStation(gauge) {
+  let result;
+  if      (gauge.src === 'NOAA')  result = await fetchNOAAStation(gauge);
+  else if (gauge.src === 'UHSLC') result = await fetchUHSLCStation(gauge);
+  else                            result = await fetchIOCStation(gauge);
+  return { ...gauge, ...result };
+}
+
+// ── SVG icon สี่เหลี่ยม (แยกจาก DART วงกลม) ──
+function makeTideIcon(residualCm) {
+  const st  = tideStatus(residualCm);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="28" viewBox="0 0 22 28">
+    <!-- เสา -->
+    <rect x="10" y="1" width="2" height="8" fill="${st.color}" opacity="0.9"/>
+    <!-- body สี่เหลี่ยม -->
+    <rect x="3" y="9" width="16" height="14" rx="3"
+          fill="${st.color}" opacity="0.85" stroke="white" stroke-width="1.5"/>
+    <!-- ตัวอักษร T -->
+    <text x="11" y="20" text-anchor="middle" font-size="9"
+          font-weight="bold" fill="white" font-family="Arial">T</text>
+    <!-- alert ring -->
+    ${Math.abs(residualCm||0) >= 50
+      ? `<rect x="1" y="7" width="20" height="18" rx="4" fill="none"
+               stroke="${st.color}" stroke-width="1" opacity="0.5"/>`
+      : ''}
+  </svg>`;
+  return L.divIcon({
+    html: svg, className: '',
+    iconSize: [22, 28], iconAnchor: [11, 26], popupAnchor: [0, -26],
+  });
+}
+
+// ── Popup HTML ────────────────────────────
+function tidePopupHtml(g) {
+  const st      = tideStatus(g.residualCm !== undefined ? g.residualCm : null);
+  const rawStr  = (g.raw !== null && g.raw !== undefined)
+    ? `${g.raw.toFixed(3)} m` : 'N/A';
+  const resStr  = (g.residualCm !== null && g.residualCm !== undefined)
+    ? `${g.residualCm > 0 ? '+' : ''}${g.residualCm.toFixed(1)} cm` : 'N/A';
+  const updStr  = g.updatedAt
+    ? g.updatedAt.toLocaleString('th-TH', { timeZone:'Asia/Bangkok', hour12:false,
+        year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+    : 'N/A';
+  const pct = Math.min(100, Math.abs(g.residualCm || 0));
+
+  return `
+    <div class="tg-popup">
+      <div class="tg-popup-name">🌊 ${g.name}</div>
+      <div class="tg-level-row">
+        <span class="tg-level-val" style="color:${st.color}">${resStr}</span>
+        <span style="font-size:11px;font-weight:700;color:${st.color}">${st.label}</span>
+      </div>
+      <div class="tg-bar-wrap">
+        <div class="tg-bar-fill" style="width:${pct}%;background:${st.color}"></div>
+      </div>
+      <div class="tg-meta">
+        <div>📊 Sea level: <strong>${rawStr}</strong></div>
+        <div>🏳️ Deviation from mean: <strong style="color:${st.color}">${resStr}</strong></div>
+        <div>🌍 Country: ${g.country} | Station: ${g.id}</div>
+      </div>
+      <div class="tg-sources">
+        🕐 ${updStr} THA &nbsp;|&nbsp; Source: ${g.src || g.source || 'IOC'}
+      </div>
+    </div>`;
+}
+
+// ── Init markers (static position ก่อน) ──
+function initTideGauges() {
+  tideGaugeLayer = L.layerGroup();
+  TIDE_GAUGES.forEach(g => {
+    const marker = L.marker([g.lat, g.lon], {
+      icon: makeTideIcon(null),
+      zIndexOffset: 400,
+    });
+    marker.bindPopup(tidePopupHtml({ ...g, residualCm: null, raw: null, updatedAt: null }), {
+      maxWidth: 240, offset: L.point(0, -26)
+    });
+    tideGaugeMarkers[g.id] = { marker, data: { ...g } };
+    tideGaugeLayer.addLayer(marker);
+  });
+}
+
+// ── Update markers หลัง fetch ─────────────
+function updateTideMarkers(results) {
+  results.forEach(g => {
+    const entry = tideGaugeMarkers[g.id];
+    if (!entry) return;
+    entry.data = g;
+    entry.marker.setIcon(makeTideIcon(g.residualCm));
+    entry.marker.getPopup()?.setContent(tidePopupHtml(g));
+    // แจ้งเตือนถ้า ALERT
+    if (g.residualCm !== null && Math.abs(g.residualCm) >= 100) {
+      showToast(
+        `🌊 Storm Surge Alert! ${g.name} — deviation ${g.residualCm > 0 ? '+' : ''}${g.residualCm.toFixed(0)} cm`,
+        'high'
+      );
+    }
+  });
+  // summary log
+  const alerts   = results.filter(g => g.residualCm !== null && Math.abs(g.residualCm) >= 100).length;
+  const elevated = results.filter(g => g.residualCm !== null && Math.abs(g.residualCm) >= 50 && Math.abs(g.residualCm) < 100).length;
+  const normal   = results.filter(g => g.residualCm !== null && Math.abs(g.residualCm) <  50).length;
+  const nodata   = results.filter(g => g.residualCm === null).length;
+  document.getElementById('dotNOAA').title = `Tide: 🟢${normal} 🟡${elevated} 🔴${alerts} ⚫${nodata}`;
+  setLog(`Tide Gauges — ✓Normal:${normal} ▲Elevated:${elevated} ⚠Alert:${alerts} ND:${nodata}`);
+}
+
+// ── Fetch ทุกสถานี ─────────────────────────
+async function fetchAllTideGauges() {
+  if (!tideGaugeVisible) return;
+  setLog('Fetching tide gauge data (IOC + UHSLC + NOAA)…');
+  // แบ่ง batch ไม่ให้ทำพร้อมกันเยอะเกิน
+  const results = [];
+  const batchSize = 5;
+  for (let i = 0; i < TIDE_GAUGES.length; i += batchSize) {
+    const batch = TIDE_GAUGES.slice(i, i + batchSize);
+    const res   = await Promise.allSettled(batch.map(g => fetchTideGaugeStation(g)));
+    res.forEach((r, j) => {
+      results.push(r.status === 'fulfilled' ? r.value : { ...batch[j], residualCm: null, raw: null, updatedAt: null });
+    });
+    if (i + batchSize < TIDE_GAUGES.length) await new Promise(r => setTimeout(r, 300));
+  }
+  updateTideMarkers(results);
+}
+
+// ── Toggle ─────────────────────────────────
+function toggleTideGauges() {
+  tideGaugeVisible = !tideGaugeVisible;
+  const btn = document.getElementById('btnTideGauge');
+  if (tideGaugeVisible) {
+    if (!tideGaugeLayer) initTideGauges();
+    tideGaugeLayer.addTo(leafletMap);
+    btn.classList.add('active-blue');
+    leafletMap.setView([8, 100], 5, { animate: true }); // zoom ไปโซนไทย
+    fetchAllTideGauges();
+    clearInterval(tidePollInterval);
+    tidePollInterval = setInterval(fetchAllTideGauges, 15 * 60 * 1000); // poll ทุก 15 นาที
+  } else {
+    if (tideGaugeLayer) leafletMap.removeLayer(tideGaugeLayer);
+    btn.classList.remove('active-blue');
+    clearInterval(tidePollInterval);
+  }
 }
 
 // ══════════════════════════════════════════
