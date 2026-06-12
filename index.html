@@ -30,6 +30,10 @@
 <!-- Leaflet Map -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Leaflet MarkerCluster — สำหรับ Tide Gauge clustering -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
 <style>
   :root {
     --bg: #0a0e1a;
@@ -445,6 +449,32 @@
   .bs-nodata   { background: #ef4444; }
   .bs-loading  { background: #64748b; }
 
+  /* Tide Gauge cluster icon */
+  .tide-cluster {
+    background: rgba(34,197,94,0.85);
+    border: 2px solid #fff;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 900; color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    cursor: pointer;
+  }
+  .tide-cluster-elevated {
+    background: rgba(234,179,8,0.9);
+    box-shadow: 0 2px 8px rgba(234,179,8,0.3);
+  }
+  .tide-cluster-alert {
+    background: rgba(239,68,68,0.9);
+    box-shadow: 0 0 10px rgba(239,68,68,0.5);
+    animation: pulse-dot 1.5s infinite;
+  }
+
+  /* Override Leaflet default cluster CSS ให้สอดคล้องกับ dark theme */
+  .leaflet-cluster-anim .leaflet-marker-icon,
+  .leaflet-cluster-anim .leaflet-marker-shadow {
+    transition: transform 0.3s ease-out, opacity 0.3s ease-in;
+  }
+
   /* Tide Gauge popup */
   .tg-popup { padding: 10px 12px; min-width: 190px; }
   .tg-popup-name { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
@@ -454,6 +484,7 @@
   .tg-level-val { font-size: 16px; font-weight: 900; font-family: var(--font-mono); }
   .tg-meta { font-size: 10px; color: var(--text-muted); line-height: 1.7; }
   .tg-sources { font-size: 9px; color: #334155; margin-top: 4px; border-top: 1px solid var(--border); padding-top: 4px; }
+
 
   .event-list {
     flex: 1;
@@ -3271,11 +3302,43 @@ function tidePopupHtml(g) {
 
 // ── Init markers (static position ก่อน) ──
 function initTideGauges() {
-  tideGaugeLayer = L.layerGroup();
+  // สร้าง MarkerClusterGroup พร้อม custom cluster icon
+  tideGaugeLayer = L.markerClusterGroup({
+    maxClusterRadius: 50,          // รัศมีรวม cluster (px) — 50 พอดีสำหรับโซนไทย
+    spiderfyOnMaxZoom: true,       // zoom สุดแล้วกางออกได้
+    showCoverageOnHover: false,    // ไม่แสดง polygon ครอบ cluster
+    zoomToBoundsOnClick: true,     // คลิก cluster แล้ว zoom เข้า
+    disableClusteringAtZoom: 7,    // zoom >= 7 แสดงแยกทุกตัว
+
+    // Custom cluster icon — สีตาม worst status ใน cluster
+    iconCreateFunction: function(cluster) {
+      const markers = cluster.getAllChildMarkers();
+      // หา worst status ใน cluster
+      let worstStatus = 'normal';
+      markers.forEach(m => {
+        const d = m.options._tideData;
+        if (!d) return;
+        const abs = Math.abs(d.residualCm || 0);
+        if      (abs >= 100) worstStatus = 'alert';
+        else if (abs >= 50 && worstStatus !== 'alert') worstStatus = 'elevated';
+      });
+      const cls = worstStatus === 'alert'    ? 'tide-cluster tide-cluster-alert'
+                : worstStatus === 'elevated' ? 'tide-cluster tide-cluster-elevated'
+                : 'tide-cluster';
+      const size = cluster.getChildCount() > 9 ? 36 : 32;
+      return L.divIcon({
+        html: `<div class="${cls}" style="width:${size}px;height:${size}px">${cluster.getChildCount()}</div>`,
+        className: '',
+        iconSize: L.point(size, size),
+      });
+    },
+  });
+
   TIDE_GAUGES.forEach(g => {
     const marker = L.marker([g.lat, g.lon], {
       icon: makeTideIcon(null),
       zIndexOffset: 400,
+      _tideData: { ...g, residualCm: null }, // เก็บ data ไว้ใน options สำหรับ cluster icon
     });
     marker.bindPopup(tidePopupHtml({ ...g, residualCm: null, raw: null, updatedAt: null }), {
       maxWidth: 240, offset: L.point(0, -26)
@@ -3291,6 +3354,8 @@ function updateTideMarkers(results) {
     const entry = tideGaugeMarkers[g.id];
     if (!entry) return;
     entry.data = g;
+    // อัปเดต _tideData ใน marker options สำหรับ cluster icon color logic
+    entry.marker.options._tideData = { ...g };
     entry.marker.setIcon(makeTideIcon(g.residualCm));
     entry.marker.getPopup()?.setContent(tidePopupHtml(g));
     // แจ้งเตือนถ้า ALERT
@@ -3301,6 +3366,10 @@ function updateTideMarkers(results) {
       );
     }
   });
+  // refresh cluster icons หลัง update data ทั้งหมด
+  if (tideGaugeLayer && typeof tideGaugeLayer.refreshClusters === 'function') {
+    tideGaugeLayer.refreshClusters();
+  }
   // summary log
   const alerts   = results.filter(g => g.residualCm !== null && Math.abs(g.residualCm) >= 100).length;
   const elevated = results.filter(g => g.residualCm !== null && Math.abs(g.residualCm) >= 50 && Math.abs(g.residualCm) < 100).length;
