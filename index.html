@@ -1082,6 +1082,9 @@
   <button class="filter-btn" id="btnThailandZone" onclick="toggleThailandFilter()" style="border-color:rgba(74,222,128,0.4);color:#4ade80">
     🇹🇭 Near Thailand
   </button>
+  <button class="filter-btn" id="btnMyanmarFilter" onclick="toggleMyanmarFilter(this)" style="border-color:rgba(255,165,0,0.4);color:#ffa500">
+    🇲🇲 Myanmar+TH+CN
+  </button>
   <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()">
     <span id="refreshIcon">↻</span> Refresh Now
   </button>
@@ -1669,10 +1672,18 @@ async function fetchAll() {
 function applyFilters() {
   const cutoff = Date.now() - timeFilterHours * 3600000;
   filteredEvents = allEvents.filter(e => {
-    if (e.mag < magFilter) return false;
-    if (sourceFilter !== 'all' && e.source !== sourceFilter) return false;
     if (e.time < cutoff) return false;
+    if (sourceFilter !== 'all' && e.source !== sourceFilter) return false;
+
+    // Myanmar+TH+CN filter — แสดงทุก magnitude ในพื้นที่
+    if (myanmarFilterActive) return isInRegionBox(e);
+
+    // Thailand zone filter
     if (thailandFilterActive && !isNearThailand(e)) return false;
+
+    // magnitude filter (ใช้เฉพาะเมื่อไม่ได้เปิด region filter)
+    if (e.mag < magFilter) return false;
+
     return true;
   });
   renderList();
@@ -1728,6 +1739,47 @@ function renderList() {
     </div>
   `).join('');
   list.innerHTML = html;
+}
+
+// ══════════════════════════════════════════
+// MYANMAR + THAILAND + CHINA FILTER
+// ── bounding boxes ครอบ 3 ประเทศ ──────────
+// ══════════════════════════════════════════
+let myanmarFilterActive = false;
+
+// Bounding boxes (lat_min, lat_max, lon_min, lon_max)
+const REGION_BOXES = [
+  { name: 'Myanmar',   latMin: 9.5,  latMax: 28.5, lonMin:  92.0, lonMax: 101.5 },
+  { name: 'Thailand',  latMin: 5.5,  latMax: 20.5, lonMin:  97.5, lonMax: 105.7 },
+  { name: 'China',     latMin:18.0,  latMax: 53.5, lonMin:  73.5, lonMax: 135.0 },
+];
+
+function isInRegionBox(ev) {
+  if (!ev.lat || !ev.lon) return false;
+  return REGION_BOXES.some(b =>
+    ev.lat >= b.latMin && ev.lat <= b.latMax &&
+    ev.lon >= b.lonMin && ev.lon <= b.lonMax
+  );
+}
+
+function toggleMyanmarFilter(btn) {
+  myanmarFilterActive = !myanmarFilterActive;
+  if (myanmarFilterActive) {
+    btn.classList.add('active');
+    btn.style.background = 'rgba(255,165,0,0.2)';
+    btn.style.borderColor = '#ffa500';
+    btn.style.color = '#ffa500';
+    // ถ้าเปิด Myanmar filter ให้ปิด Thailand filter ไม่ให้ conflict
+    if (thailandFilterActive) toggleThailandFilter();
+    setLog('🇲🇲 Filter: Myanmar + Thailand + China (all magnitudes)');
+  } else {
+    btn.classList.remove('active');
+    btn.style.background = '';
+    btn.style.borderColor = 'rgba(255,165,0,0.4)';
+    btn.style.color = '#ffa500';
+    setLog('Filter cleared');
+  }
+  applyFilters();
 }
 
 // ══════════════════════════════════════════
@@ -3184,27 +3236,31 @@ function toggleDartBuoys() {
 // สถานี Tide Gauge ในภูมิภาคไทย + อ่าวไทย + อินเดีย
 // รวบรวมจาก IOC GLOSS, UHSLC, NOAA CO-OPS
 const TIDE_GAUGES = [
-  // ── อ่าวไทย ─────────────────────────────
-  { id:'satahip',    name:'สัตหีบ (Sattahip)',       lat:12.67, lon:100.90, country:'TH', src:'IOC' },
-  { id:'prachub',    name:'ประจวบฯ (Prachuap)',       lat:11.82, lon:99.80,  country:'TH', src:'IOC' },
-  { id:'songkhla',   name:'สงขลา (Songkhla)',         lat: 7.20, lon:100.60, country:'TH', src:'IOC' },
-  { id:'pattani',    name:'ปัตตานี (Pattani)',        lat: 6.87, lon:101.27, country:'TH', src:'IOC' },
-  { id:'koh_samui',  name:'เกาะสมุย (Ko Samui)',      lat: 9.54, lon:100.06, country:'TH', src:'IOC' },
-  // ── อันดามัน ────────────────────────────
-  { id:'phuket',     name:'ภูเก็ต (Phuket)',          lat: 7.80, lon:98.40,  country:'TH', src:'IOC' },
-  { id:'ranong',     name:'ระนอง (Ranong)',            lat: 9.97, lon:98.63,  country:'TH', src:'IOC' },
-  { id:'ko_tapao',   name:'เกาะตะเภา (Ko Tapao)',     lat: 7.78, lon:98.43,  country:'TH', src:'IOC' },
-  // ── เพื่อนบ้านใกล้เคียง ─────────────────
-  { id:'penang',     name:'Penang, Malaysia',         lat: 5.41, lon:100.37, country:'MY', src:'IOC' },
-  { id:'langkawi',   name:'Langkawi, Malaysia',       lat: 6.43, lon:99.77,  country:'MY', src:'IOC' },
-  { id:'sabang',     name:'Sabang, Indonesia',        lat: 5.87, lon:95.32,  country:'ID', src:'IOC' },
-  { id:'sibolga',    name:'Sibolga, Indonesia',       lat: 1.74, lon:98.78,  country:'ID', src:'IOC' },
-  { id:'colombo',    name:'Colombo, Sri Lanka',       lat: 6.94, lon:79.86,  country:'LK', src:'IOC' },
-  { id:'chennai',    name:'Chennai, India',           lat:13.10, lon:80.30,  country:'IN', src:'UHSLC' },
-  { id:'vishaka',    name:'Visakhapatnam, India',     lat:17.69, lon:83.28,  country:'IN', src:'UHSLC' },
-  // ── NOAA stations ภูมิภาค ───────────────
-  { id:'1631428',    name:'Legaspi, Philippines',     lat:13.15, lon:123.75, country:'PH', src:'NOAA' },
-  { id:'1612340',    name:'Midway Island (Pacific)',  lat:28.21, lon:-177.36,country:'US', src:'NOAA' },
+  // ── 🇹🇭 อ่าวไทย (position only) ──────────
+  { id:'satth',   name:'สัตหีบ (Sattahip)',        lat:12.67, lon:100.90, country:'TH', src:'POS' },
+  { id:'prach',   name:'ประจวบฯ (Prachuap)',        lat:11.82, lon: 99.80, country:'TH', src:'POS' },
+  { id:'songk',   name:'สงขลา (Songkhla)',          lat: 7.20, lon:100.60, country:'TH', src:'POS' },
+  { id:'krabi',   name:'กระบี่ (Krabi)',             lat: 8.08, lon: 98.92, country:'TH', src:'POS' },
+  { id:'patta',   name:'ปัตตานี (Pattani)',          lat: 6.87, lon:101.27, country:'TH', src:'POS' },
+  // ── 🇹🇭 อันดามัน (position only) ─────────
+  { id:'phuke',   name:'ภูเก็ต (Phuket)',           lat: 7.80, lon: 98.40, country:'TH', src:'POS' },
+  { id:'ranon',   name:'ระนอง (Ranong)',             lat: 9.97, lon: 98.63, country:'TH', src:'POS' },
+  { id:'kotap',   name:'เกาะตะเภา (Ko Tapao)',       lat: 7.78, lon: 98.43, country:'TH', src:'POS' },
+  // ── เพื่อนบ้าน (position only) ───────────
+  { id:'penag',   name:'Penang, Malaysia',           lat: 5.41, lon:100.37, country:'MY', src:'POS' },
+  { id:'langk',   name:'Langkawi, Malaysia',         lat: 6.43, lon: 99.77, country:'MY', src:'POS' },
+  { id:'saban',   name:'Sabang, Indonesia',          lat: 5.87, lon: 95.32, country:'ID', src:'POS' },
+  { id:'sibog',   name:'Sibolga, Indonesia',         lat: 1.74, lon: 98.78, country:'ID', src:'POS' },
+  { id:'colom',   name:'Colombo, Sri Lanka',         lat: 6.94, lon: 79.86, country:'LK', src:'POS' },
+  { id:'hanba',   name:'Hanimaadhoo, Maldives',      lat: 6.77, lon: 73.17, country:'MV', src:'POS' },
+  // ── NOAA — live data ──────────────────────
+  { id:'1631428', name:'Legaspi, Philippines',       lat:13.15, lon:123.75, country:'PH', src:'NOAA' },
+  { id:'1634001', name:'Manila, Philippines',        lat:14.59, lon:120.97, country:'PH', src:'NOAA' },
+  { id:'1820000', name:'Guam (Apra Harbor)',         lat:13.44, lon:144.66, country:'GU', src:'NOAA' },
+  { id:'1770000', name:'Pago Pago, American Samoa',  lat:-14.28,lon:-170.69,country:'AS', src:'NOAA' },
+  { id:'1617760', name:'Honolulu, Hawaii',           lat:21.31, lon:-157.87, country:'US', src:'NOAA' },
+  { id:'9461380', name:'Adak Island, Alaska',        lat:51.86, lon:-176.63, country:'US', src:'NOAA' },
+  { id:'9755371', name:'San Juan, Puerto Rico',      lat:18.46, lon: -66.12, country:'PR', src:'NOAA' },
 ];
 
 // State
@@ -3214,10 +3270,7 @@ let tideGaugeMarkers  = {};
 let tidePollInterval  = null;
 
 // ── Status logic ──────────────────────────
-// IOC รายงาน residual (actual - predicted) หน่วย cm
-// NOAA รายงาน water_level หน่วย m
 function tideStatus(residualCm) {
-  // Guard: null, undefined, NaN ทั้งหมด → No Data
   if (residualCm === null || residualCm === undefined || isNaN(residualCm)) {
     return { label:'No Data', color:'#64748b', pct:0, cls:'tg-nodata' };
   }
@@ -3225,74 +3278,6 @@ function tideStatus(residualCm) {
   if (abs >= 100) return { label:'⚠ ALERT',    color:'#ef4444', pct:100,                cls:'tg-alert'    };
   if (abs >=  50) return { label:'▲ Elevated', color:'#eab308', pct:Math.min(100,abs),  cls:'tg-elevated' };
   return               { label:'✓ Normal',    color:'#22c55e', pct:Math.min(100,abs*2), cls:'tg-normal'   };
-}
-
-// ── IOC fetch ────────────────────────────
-// IOC VLIZ API: https://www.ioc-sealevelmonitoring.org/service.php
-async function fetchIOCStation(gauge) {
-  const endDt   = new Date();
-  const startDt = new Date(endDt - 6 * 3600000);
-  const fmt     = d => d.toISOString().replace('T',' ').slice(0,19);
-  const url = `https://www.ioc-sealevelmonitoring.org/service.php?query=sealevel`
-            + `&code=${gauge.id}&timestart=${fmt(startDt)}&timestop=${fmt(endDt)}&output=json`;
-  const proxyUrls = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  ];
-
-  // ลด timeout เป็น 4s ต่อ URL — ไม่รอนาน
-  const tryFetch = async (u) => {
-    const res = await fetchWithTimeout(u, 4000);
-    if (!res.ok) throw new Error('not ok');
-    const text = await res.text();
-    if (!text || text.trim().startsWith('<')) throw new Error('bad response');
-    const data = JSON.parse(text);
-    if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
-    const latest = data[data.length - 1];
-    const slevel = parseFloat(latest.slevel);
-    if (isNaN(slevel)) throw new Error('NaN slevel');
-    const ts = new Date(latest.stime + 'Z');
-    if (isNaN(ts.getTime())) throw new Error('bad date');
-    const ageH = (Date.now() - ts.getTime()) / 3600000;
-    if (ageH > 3) return { residualCm: null, raw: null, updatedAt: ts, src: 'IOC' };
-    return { residualCm: slevel * 100, raw: slevel, updatedAt: ts, src: 'IOC' };
-  };
-
-  // ลอง direct + proxy พร้อมกัน — ใครตอบก่อนได้ก่อน
-  try {
-    const result = await Promise.any([url, ...proxyUrls].map(u =>
-      tryFetch(u).catch(e => Promise.reject(e))
-    ));
-    return result;
-  } catch(e) {
-    return { residualCm: null, raw: null, updatedAt: null, src: 'IOC' };
-  }
-}
-
-// ── UHSLC fetch ───────────────────────────
-async function fetchUHSLCStation(gauge) {
-  const url      = `https://uhslc.soest.hawaii.edu/api/fd/json?stnid=${gauge.id.replace(/\D/g,'')}&limit=10`;
-  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-
-  const tryFetch = async (u) => {
-    const res  = await fetchWithTimeout(u, 4000);
-    if (!res.ok) throw new Error('not ok');
-    const data = await res.json();
-    if (!data?.data?.length) throw new Error('empty');
-    const latest = data.data[data.data.length - 1];
-    const ts     = new Date(latest[0]);
-    const rawM   = latest[1] / 1000;
-    if (isNaN(rawM) || isNaN(ts.getTime())) throw new Error('NaN');
-    const ageH   = (Date.now() - ts.getTime()) / 3600000;
-    if (ageH > 3) return { residualCm: null, raw: null, updatedAt: ts, src: 'UHSLC' };
-    return { residualCm: rawM * 100, raw: rawM, updatedAt: ts, src: 'UHSLC' };
-  };
-
-  try {
-    return await Promise.any([url, proxyUrl].map(u => tryFetch(u)));
-  } catch(e) {
-    return { residualCm: null, raw: null, updatedAt: null, src: 'UHSLC' };
-  }
 }
 
 // ── NOAA CO-OPS fetch ─────────────────────
@@ -3325,13 +3310,13 @@ async function fetchNOAAStation(gauge) {
   }
 }
 
-// ── Route fetch ตาม source ───────────────
+// ── Route fetch — NOAA only, POS = position only ──
 async function fetchTideGaugeStation(gauge) {
-  let result;
-  if      (gauge.src === 'NOAA')  result = await fetchNOAAStation(gauge);
-  else if (gauge.src === 'UHSLC') result = await fetchUHSLCStation(gauge);
-  else                            result = await fetchIOCStation(gauge);
-  return { ...gauge, ...result };
+  if (gauge.src === 'POS') {
+    // position-only station — ไม่ fetch ข้อมูล คืน null ทันที
+    return { ...gauge, residualCm: null, raw: null, updatedAt: null };
+  }
+  return await fetchNOAAStation(gauge);
 }
 
 // ── SVG icon สี่เหลี่ยม (แยกจาก DART วงกลม) ──
@@ -3489,22 +3474,16 @@ function updateTideMarkers(results) {
   setLog(`Tide Gauges — ✓Normal:${normal} ▲Elevated:${elevated} ⚠Alert:${alerts} ND:${nodata}`);
 }
 
-// ── Fetch ทุกสถานี ─────────────────────────
+// ── Fetch ทุกสถานี — เฉพาะ NOAA, POS แสดง position เฉยๆ ──
 async function fetchAllTideGauges() {
   if (!tideGaugeVisible) return;
-  setLog('Fetching tide gauge data (IOC + UHSLC + NOAA)…');
-  // batch 8 พร้อมกัน (เพิ่มจาก 5) delay 100ms (ลดจาก 300ms)
-  const results = [];
-  const batchSize = 8;
-  for (let i = 0; i < TIDE_GAUGES.length; i += batchSize) {
-    const batch = TIDE_GAUGES.slice(i, i + batchSize);
-    const res   = await Promise.allSettled(batch.map(g => fetchTideGaugeStation(g)));
-    res.forEach((r, j) => {
-      results.push(r.status === 'fulfilled' ? r.value : { ...batch[j], residualCm: null, raw: null, updatedAt: null });
-    });
-    if (i + batchSize < TIDE_GAUGES.length) await new Promise(r => setTimeout(r, 100));
-  }
-  updateTideMarkers(results);
+  const noaaStations = TIDE_GAUGES.filter(g => g.src === 'NOAA');
+  setLog(`Tide Gauges — fetching ${noaaStations.length} NOAA stations, ${TIDE_GAUGES.length - noaaStations.length} position-only`);
+  const results = await Promise.allSettled(noaaStations.map(g => fetchTideGaugeStation(g)));
+  const data = results.map((r, i) =>
+    r.status === 'fulfilled' ? r.value : { ...noaaStations[i], residualCm: null, raw: null, updatedAt: null }
+  );
+  updateTideMarkers(data);
 }
 
 // ── Toggle ─────────────────────────────────
